@@ -1,4 +1,3 @@
-using UI.Client.Pages;
 using UI.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,8 +25,5 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(UI.Client._Imports).Assembly);
 
 app.Run();
