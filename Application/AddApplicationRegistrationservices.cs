@@ -1,4 +1,5 @@
 ﻿using Application.Helper;
+using Application.Helper.Profiles;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
@@ -13,6 +14,8 @@ public static class DependencyInjection
         // تسجيل AutoMappers
         services.AddAutoMapper(cfg =>
         {
+            cfg.AddProfile<UserProfile>();
+            cfg.AddProfile<RoleProfile>();
         });
 
         // تسجيل MediatR
