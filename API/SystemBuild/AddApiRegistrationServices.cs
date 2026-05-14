@@ -7,9 +7,10 @@ using System.Text;
 
 namespace API.SystemBuild
 {
+    
     public static class DependencyInjection
     {
-        public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddApiRegistrationServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddControllers();
             services.AddEndpointsApiExplorer();
@@ -77,7 +78,9 @@ namespace API.SystemBuild
             });
 
             // تسجيل خدمات الطبقات الأخرى (مشروع QIMS)
-            services.AddApplicationServices();
+
+            services.AddApplicationRegistrationservices();
+           
             services.AddInfrastructureServices(configuration);
 
             return services;
