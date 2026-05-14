@@ -9,7 +9,7 @@ namespace Application;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationRegistrationservices(this IServiceCollection services)
     {
         // تسجيل AutoMappers
         services.AddAutoMapper(cfg =>
