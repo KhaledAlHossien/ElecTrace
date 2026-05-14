@@ -1,10 +1,13 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Application_Contract.Interfaces;
+using Infrastructure.Services;
+using Infrastructure.Servicies;
+using Microsoft.EntityFrameworkCore; 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Persistence.Data;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.EntityFrameworkCore; 
-using Persistence.Data;
 
 namespace Infrastructure
 {
@@ -15,6 +18,10 @@ namespace Infrastructure
 
             services.AddDbContext<DataContext>(opt =>
                          opt.UseSqlServer(configuration.GetConnectionString("Default")));
+
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IJwtService, JwtService>();
 
             //services.AddAuthentication(options =>
             //{
