@@ -11,12 +11,12 @@ namespace Application.Helper.Profiles
     {
         public UserProfile()
         {
-            CreateMap<User, UserDto>().ReverseMap()
-            .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
+            CreateMap<User, UserResponseDto>();
 
-            CreateMap < CreateUserDto, User>().ReverseMap()
-                  .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
+            CreateMap<UpdateUserRequestDto, User>()
+                .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
 
+            CreateMap<CreateUserRequestDto, User>();
         }
     }
 }

@@ -6,5 +6,5 @@ using System.Text;
 
 namespace Application.Features.User.Command.Create
 {
-    public record CreateUserCommand(CreateUserDto UserData) : IRequest<UserDto>;
+    public record CreateUserCommand(CreateUserRequestDto UserData) : IRequest<UserResponseDto>;
 }

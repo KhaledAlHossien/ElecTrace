@@ -27,11 +27,7 @@ namespace Application.Features.User.Command.Create
 
             RuleFor(x => x.UserData.RoleId)
                 .NotEmpty().WithMessage("Role ID is required.")
-                .MustAsync(async (roleId, cancellationToken) =>
-                {
-                    var role = await _roleService.GetByIdAsync(roleId);
-                    return role != null;
-                }).WithMessage("The specified Role ID does not exist in the system.");
+                .GreaterThan(0).WithMessage("Role ID is required and must be valid.");
         }
     }
 }
