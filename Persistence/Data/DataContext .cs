@@ -11,10 +11,10 @@ namespace Persistence.Data
     {
         public DataContext(DbContextOptions<DataContext> options) : base(options) { }
 
-        // تعريف الجداول
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserToken> UserTokens { get; set; }
+        public DbSet<Department> Departments { get; set; }
 
 
 
@@ -38,10 +38,18 @@ namespace Persistence.Data
                 .HasForeignKey(ut => ut.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.Entity<Department>()
+                .HasIndex(d => d.MeterCode)
+                .IsUnique();
+
+
             builder.Entity<Role>().HasData(
                   new Role { Id = 1, Name = "Admin" },
                    new Role { Id = 2, Name = "Employee" }
             );
+
+            
+
         }
     }
 }

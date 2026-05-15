@@ -4,5 +4,5 @@ using System.Text;
 
 namespace Application_Contract.DTOs.User
 {
-    public record CreateUserDto(string Name, string UserName, string Password, int RoleId);
+    public record UpdateUserRequestDto(string? Name, string? UserName, string? Password);
 }

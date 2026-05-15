@@ -1,7 +1,7 @@
 ﻿using Application_Contract.Interfaces;
 using Infrastructure.Services;
 using Infrastructure.Servicies;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Persistence.Data;
@@ -22,6 +22,7 @@ namespace Infrastructure
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IJwtService, JwtService>();
+            services.AddScoped<IDepartmentService, DepartmentService>();
 
             //services.AddAuthentication(options =>
             //{

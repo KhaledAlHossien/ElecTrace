@@ -4,5 +4,5 @@ using System.Text;
 
 namespace Application_Contract.DTOs.User
 {
-    public record UserDto(int Id, string name, string UserName, string RoleName);
+    public record UserResponseDto(int Id, string name, string UserName, string RoleName);
 }
