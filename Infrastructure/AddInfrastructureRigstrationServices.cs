@@ -23,6 +23,8 @@ namespace Infrastructure
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IDepartmentService, DepartmentService>();
+            services.AddScoped<ISystemInfoService, SystemInfoService>();
+            services.AddScoped<IMeterReadingService, MeterReadingService>();
 
             //services.AddAuthentication(options =>
             //{

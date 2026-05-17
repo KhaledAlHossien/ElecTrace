@@ -17,6 +17,8 @@ public static class DependencyInjection
             cfg.AddProfile<UserProfile>();
             cfg.AddProfile<RoleProfile>();
             cfg.AddProfile<DepartmentProfile>();
+            cfg.AddProfile<SystemInfoProfile>();
+            cfg.AddProfile<MeterReadingProfile>();
         });
 
         // تسجيل MediatR
