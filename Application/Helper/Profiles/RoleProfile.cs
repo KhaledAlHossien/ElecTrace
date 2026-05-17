@@ -11,7 +11,7 @@ namespace Application.Helper.Profiles
     {
         public RoleProfile()
         {
-            CreateMap<Role, RoleDto>().ReverseMap()
+            CreateMap<Role, RoleResponseDto>().ReverseMap()
             .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
 
             CreateMap<RoleRequestDto, Role>().ReverseMap()

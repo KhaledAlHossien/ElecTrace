@@ -29,7 +29,7 @@ namespace Application.Features.User.Command.Create
                 .NotEmpty().WithMessage("Role ID is required.")
                 .MustAsync(async (roleId, cancellationToken) =>
                 {
-                    var role = await _roleService.GetByIdAsync(roleId);
+                    var role = await _roleService.GetRoleByIdAsync(roleId);
                     return role != null;
                 }).WithMessage("The specified Role ID does not exist in the system.");
         }
