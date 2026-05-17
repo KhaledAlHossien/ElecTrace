@@ -15,7 +15,8 @@ namespace Persistence.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserToken> UserTokens { get; set; }
         public DbSet<Department> Departments { get; set; }
-
+        public DbSet<SystemInfo> SystemInfos { get; set; }
+        public DbSet<MeterReading> MeterReadings { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder builder)

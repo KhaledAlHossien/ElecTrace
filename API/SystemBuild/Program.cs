@@ -1,5 +1,6 @@
 using API.SystemBuild;
 using Application;
+using Persistence.Data;
 
 
 
@@ -19,7 +20,11 @@ var app = builder.Build();
 
 app.UseApplicationPipeline();
 
-
+using(var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<DataContext>();
+    await DbSeeder.SeedAsync(db);
+}
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
