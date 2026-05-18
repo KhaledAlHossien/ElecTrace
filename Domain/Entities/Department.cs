@@ -14,5 +14,7 @@ namespace Domain.Entities
         public string MeterCode { get; set; } = string.Empty;
 
         public double MaxCounter { get; set; }
+
+
     }
 }

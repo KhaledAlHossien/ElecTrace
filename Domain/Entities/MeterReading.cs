@@ -10,6 +10,7 @@ namespace Domain.Entities
         public int Id { get; set; }
 
         public int DepartmentId { get; set; }
+        public Department? Department { get; set; }
 
 
         public Months Month { get; set; }

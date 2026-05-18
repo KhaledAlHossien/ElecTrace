@@ -36,7 +36,9 @@ namespace Application.Features.MeterReading.Queries.GetByDepartment
             }
 
             var readings = await _meterReadingService.GetByDepartmentIdAsync(request.DepartmentId);
-            return _mapper.Map<IEnumerable<MeterReadingResponseDto>>(readings);
+
+            var result = _mapper.Map<IEnumerable<MeterReadingResponseDto>>(readings);
+            return result;
         }
     }
 }

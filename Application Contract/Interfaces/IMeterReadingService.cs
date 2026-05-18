@@ -11,8 +11,7 @@ namespace Application_Contract.Interfaces
         Task<IEnumerable<MeterReading>> GetAllAsync();
         Task<IEnumerable<MeterReading>> GetByDepartmentIdAsync(int departmentId);
 
-        Task<IEnumerable<MeterReading>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
-
+        Task<IEnumerable<MeterReading>> GetByMonthAndYearAsync(Domain.Enums.Months month, int year);
         Task AddAsync(MeterReading meterReading);
         Task UpdateAsync(MeterReading meterReading);
         Task DeleteAsync(MeterReading meterReading);

@@ -19,12 +19,14 @@ namespace Infrastructure.Servicies
         public async Task<MeterReading?> GetByIdAsync(int id)
         {
             return await _context.MeterReadings
+                .Include(m => m.Department)
                 .FirstOrDefaultAsync(m => m.Id == id);
         }
 
         public async Task<IEnumerable<MeterReading>> GetAllAsync()
         {
             return await _context.MeterReadings
+                .Include(m => m.Department)
                 .AsNoTracking()
                 .ToListAsync();
         }
@@ -35,18 +37,17 @@ namespace Infrastructure.Servicies
                 .Where(m => m.DepartmentId == departmentId)
                 .OrderByDescending(m => m.CreatedAt) 
                 .AsNoTracking()
+                .Include(m => m.Department) 
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<MeterReading>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+        public async Task<IEnumerable<MeterReading>> GetByMonthAndYearAsync(Domain.Enums.Months month, int year)
         {
-            var start = startDate.Date;
-
-            var end = endDate.Date.AddDays(1);
-
             return await _context.MeterReadings
-                .Where(m => m.CreatedAt >= start && m.CreatedAt < end)
+                .Where(m => m.Month == month && m.CreatedAt.Year == year)
+                .Include(m => m.Department) 
                 .AsNoTracking()
+                .OrderByDescending(m => m.CreatedAt) 
                 .ToListAsync();
         }
 
