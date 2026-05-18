@@ -21,7 +21,7 @@ namespace Application.Features.User.Command.Create
 
         public async Task<UserResponseDto> Handle(CreateUserCommand request, CancellationToken cancellationToken)
         {
-            var role = await _roleService.GetByIdAsync(request.UserData.RoleId);
+            var role = await _roleService.GetRoleByIdAsync(request.UserData.RoleId);
             if (role == null)
             {
                 throw new Exception("The specified Role ID does not exist in the system.");
