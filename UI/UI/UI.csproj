@@ -15,4 +15,8 @@
     <ProjectReference Include="..\..\Application Contract\Application Contract.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\images\" />
+  </ItemGroup>
+
 </Project>

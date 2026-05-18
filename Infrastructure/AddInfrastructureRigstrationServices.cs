@@ -25,6 +25,7 @@ namespace Infrastructure
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<ISystemInfoService, SystemInfoService>();
             services.AddScoped<IMeterReadingService, MeterReadingService>();
+            services.AddScoped<IElectricityReportService, ElectricityReportService>();
 
             //services.AddAuthentication(options =>
             //{

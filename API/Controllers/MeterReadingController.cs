@@ -1,10 +1,13 @@
 ﻿using Application.Features.MeterReading.Command.Cerate;
 using Application.Features.MeterReading.Command.Delete;
 using Application.Features.MeterReading.Queries.GetByDepId;
-using Application.Features.MeterReading.Queries.GetByRange;
+using Application.Features.MeterReading.Queries.GetByMonthAndYear;
+using Application.Features.Report.Queries.GetElectricityExcelReport;
+using Application.Features.Report.Queries.Invoice;
 using Application_Contract.DTOs.MeterReading;
 using Application_Contract.Interfaces;
 using AutoMapper;
+using Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,10 +42,10 @@ namespace API.Controllers
             return Ok(new { Message = "Meter reading deleted successfully" });
         }
 
-        [HttpGet("GetByDateRange")]
-        public async Task<IActionResult> GetByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+        [HttpGet("GetByMonthAndYear")]
+        public async Task<IActionResult> GetByMonthAndYear([FromQuery] Domain.Enums.Months month, [FromQuery] int year)
         {
-            var result = await _mediator.Send(new GetMeterReadingsByDateRangeQuery(startDate, endDate));
+            var result = await _mediator.Send(new GetMeterReadingsByMonthAndYearQuery(month, year));
             return Ok(result);
         }
         [HttpGet("GetByDepartment/{departmentId}")]
@@ -50,6 +53,28 @@ namespace API.Controllers
         {
             var result = await _mediator.Send(new GetMeterReadingsByDepartmentQuery(departmentId));
             return Ok(result); 
+        }
+        [HttpGet("DownloadElectricityExcelReport")]
+        public async Task<IActionResult> DownloadElectricityExcelReport([FromQuery] Months month, [FromQuery] int year)
+        {
+            var fileBytes = await _mediator.Send(new GetElectricityExcelReportQuery(month, year));
+
+            string fileName = $"Electricity_Report_{year}_{((int)month)}.xlsx";
+
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(fileBytes, contentType, fileName);
+        }
+        [HttpGet("DownloadAllInvoices")]
+        public async Task<IActionResult> DownloadAllInvoices([FromQuery] Domain.Enums.Months month, [FromQuery] int year)
+        {
+            var fileBytes = await _mediator.Send(new GetAllInvoicesExcelQuery(month, year));
+
+            string fileName = $"All_Invoices_{year}_{((int)month)}.xlsx";
+
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(fileBytes, contentType, fileName);
         }
     }
 }

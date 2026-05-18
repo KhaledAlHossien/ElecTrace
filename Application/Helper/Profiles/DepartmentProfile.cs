@@ -14,7 +14,7 @@ namespace Application.Helper.Profiles
         {
             CreateMap<CreateDepartmentRequestDto, Department>();
 
-            CreateMap<Department, DepartmentResponseDto>();
+            CreateMap<Department, DepartmentResponseDto>().ReverseMap();
 
             CreateMap<UpdateDepartmentRequestDto, Department>()
                   .ForMember(dest => dest.ConversionFactor, opt => opt.Condition(src => src.ConversionFactor.HasValue))
