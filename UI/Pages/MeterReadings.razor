@@ -1,0 +1,282 @@
+@page "/readings"
+@attribute [Authorize]
+@inject IApiDataService Api
+
+<PageTitle>قراءات الكهرباء</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">الاستهلاك الشهري</p>
+        <h1>قراءات الكهرباء</h1>
+        <p>سجل القراءة الحالية لكل قسم، واستعرض الاستهلاك المحسوب حسب الشهر والسنة.</p>
+    </div>
+</section>
+
+<section class="content-grid two-columns">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>إدخال قراءة</h2>
+                <p>ابحث باسم القسم أو رمز العداد ثم اختر النتيجة المناسبة.</p>
+            </div>
+        </div>
+
+        <EditForm Model="@form" OnValidSubmit="SaveReading">
+            <DataAnnotationsValidator />
+            <div class="form-stack">
+                <div>
+                    <label class="form-label">القسم</label>
+                    <InputText class="form-control" placeholder="اكتب اسم القسم أو رمز العداد..." @bind-Value="departmentSearch" @oninput="SearchDepartments" />
+                    @if (selectedDepartment is not null)
+                    {
+                        <div class="selected-department">
+                            <span>@selectedDepartment.Name - @selectedDepartment.MeterCode</span>
+                            <button class="btn btn-link btn-sm" type="button" @onclick="ClearSelectedDepartment">تغيير</button>
+                        </div>
+                    }
+                    else if (departmentResults.Any())
+                    {
+                        <div class="department-results">
+                            @foreach (var department in departmentResults)
+                            {
+                                <button type="button" @onclick="() => SelectDepartment(department)">
+                                    <strong>@department.Name</strong>
+                                    <span>@department.MeterCode</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(departmentSearch))
+                    {
+                        <div class="field-hint">لا توجد أقسام مطابقة.</div>
+                    }
+                </div>
+                <div>
+                    <label class="form-label">الشهر</label>
+                    <InputSelect class="form-select" @bind-Value="form.Month">
+                        @foreach (var month in Enum.GetValues<Months>())
+                        {
+                            <option value="@month">@MonthName(month)</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div>
+                    <label class="form-label">القراءة الحالية</label>
+                    <InputNumber class="form-control" @bind-Value="form.CurrentReading" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="alert @messageCss">@message</div>
+                }
+                <button class="btn btn-primary" type="submit" disabled="@isSaving">تسجيل القراءة</button>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel wide-panel">
+        <div class="panel-header filter-header">
+            <div>
+                <h2>قراءات الشهر</h2>
+                <p>@readings.Count قراءة ظاهرة.</p>
+            </div>
+            <div class="filters">
+                <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged">
+                    @foreach (var month in Enum.GetValues<Months>())
+                    {
+                        <option value="@month">@MonthName(month)</option>
+                    }
+                </select>
+                <input class="form-control year-input" type="number" value="@selectedYear" @onchange="OnYearChanged" />
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-panel">جاري تحميل القراءات...</div>
+        }
+        else if (!readings.Any())
+        {
+            <EmptyState Text="لا توجد قراءات لهذا الشهر." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>القسم</th>
+                            <th>الشهر</th>
+                            <th>السابقة</th>
+                            <th>الحالية</th>
+                            <th>الاستهلاك</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reading in readings)
+                        {
+                            <tr>
+                                <td><strong>@(reading.Department?.Name ?? $"قسم #{reading.DepartmentId}")</strong></td>
+                                <td>@MonthName(reading.Month)</td>
+                                <td>@reading.PreviousReading.ToString("N0")</td>
+                                <td>@reading.CurrentReading.ToString("N0")</td>
+                                <td><span class="status-pill">@reading.ActualConsumption.ToString("N0") ك.و.س</span></td>
+                                <td class="table-actions">
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteReading(reading.Id)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<DepartmentResponseDto> departmentResults = [];
+    private DepartmentResponseDto? selectedDepartment;
+    private List<MeterReadingResponseDto> readings = [];
+    private ReadingForm form = new();
+    private Months selectedMonth = (Months)DateTime.Today.Month;
+    private int selectedYear = DateTime.Today.Year;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string departmentSearch = "";
+    private string message = "";
+    private string messageCss = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        form.Month = selectedMonth;
+        departmentResults = await Api.SearchDepartmentsAsync("");
+        await LoadReadings();
+    }
+
+    private async Task SearchDepartments(ChangeEventArgs args)
+    {
+        departmentSearch = args.Value?.ToString() ?? "";
+        selectedDepartment = null;
+        form.DepartmentId = 0;
+        departmentResults = await Api.SearchDepartmentsAsync(departmentSearch);
+    }
+
+    private void SelectDepartment(DepartmentResponseDto department)
+    {
+        selectedDepartment = department;
+        form.DepartmentId = department.Id;
+        departmentSearch = $"{department.Name} - {department.MeterCode}";
+        departmentResults = [];
+    }
+
+    private async Task ClearSelectedDepartment()
+    {
+        selectedDepartment = null;
+        form.DepartmentId = 0;
+        departmentSearch = "";
+        departmentResults = await Api.SearchDepartmentsAsync("");
+    }
+
+    private async Task OnMonthChanged(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<Months>(args.Value?.ToString(), out var month))
+        {
+            selectedMonth = month;
+            form.Month = month;
+            await LoadReadings();
+        }
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var year))
+        {
+            selectedYear = year;
+            await LoadReadings();
+        }
+    }
+
+    private async Task LoadReadings()
+    {
+        isLoading = true;
+        readings = await Api.GetMeterReadingsAsync(selectedMonth, selectedYear);
+        isLoading = false;
+    }
+
+    private async Task SaveReading()
+    {
+        if (form.DepartmentId == 0)
+        {
+            ShowError("اختر القسم قبل تسجيل القراءة.");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            await Api.CreateMeterReadingAsync(new CreateMeterReadingRequestDto(form.DepartmentId, form.Month, form.CurrentReading));
+            ShowSuccess("تم تسجيل القراءة.");
+            selectedMonth = form.Month;
+            form.CurrentReading = 0;
+            await LoadReadings();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteReading(int id)
+    {
+        try
+        {
+            await Api.DeleteMeterReadingAsync(id);
+            ShowSuccess("تم حذف القراءة.");
+            await LoadReadings();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+
+    private static string MonthName(Months month) => month switch
+    {
+        Months.January => "كانون الثاني",
+        Months.February => "شباط",
+        Months.March => "آذار",
+        Months.April => "نيسان",
+        Months.May => "أيار",
+        Months.June => "حزيران",
+        Months.July => "تموز",
+        Months.August => "آب",
+        Months.September => "أيلول",
+        Months.October => "تشرين الأول",
+        Months.November => "تشرين الثاني",
+        Months.December => "كانون الأول",
+        _ => month.ToString()
+    };
+
+    private sealed class ReadingForm
+    {
+        public int DepartmentId { get; set; }
+        public Months Month { get; set; }
+        public decimal CurrentReading { get; set; }
+    }
+}

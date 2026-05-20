@@ -35,7 +35,7 @@ namespace Application.Features.Reports.Queries.GetAllInvoicesExcel
 
             if (readings == null || !readings.Any())
             {
-                throw new KeyNotFoundException($"لا توجد بيانات قراءات مسجلة لأي قسم في الشهر {(int)request.Month} لعام {request.Year}");
+                return Array.Empty<byte>();
             }
 
             var invoicesList = readings.Select(m => new ElectricityReportResponseDto

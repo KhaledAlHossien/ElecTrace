@@ -29,12 +29,7 @@ namespace Application.Features.MeterReading.Queries.GetByMonthAndYear
             {
                 var readings = await _meterReadingService.GetByMonthAndYearAsync(request.Month, request.Year);
 
-                if (readings == null || !readings.Any())
-                {
-                    throw new KeyNotFoundException($"No meter readings found for Month: {request.Month} in Year: {request.Year}.");
-                }
-
-                return _mapper.Map<IEnumerable<MeterReadingResponseDto>>(readings);
+                return _mapper.Map<IEnumerable<MeterReadingResponseDto>>(readings ?? []);
             }
         }
     }

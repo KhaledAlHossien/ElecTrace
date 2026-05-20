@@ -1,0 +1,218 @@
+@page "/departments"
+@attribute [Authorize]
+@inject IApiDataService Api
+
+<PageTitle>الأقسام والعدادات</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">إدارة العدادات</p>
+        <h1>الأقسام والعدادات</h1>
+        <p>تعريف الأقسام، رقم العداد، معامل التحويل، والحد الأعلى للعداد.</p>
+    </div>
+</section>
+
+<section class="content-grid two-columns">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>@(editingId is null ? "إضافة قسم" : "تعديل قسم")</h2>
+                <p>الحقول هنا تُستخدم بحساب الاستهلاك لاحقاً.</p>
+            </div>
+        </div>
+
+        <EditForm Model="@form" OnValidSubmit="SaveDepartment">
+            <DataAnnotationsValidator />
+            <div class="form-stack">
+                <div>
+                    <label class="form-label">اسم القسم</label>
+                    <InputText class="form-control" @bind-Value="form.Name" />
+                </div>
+                <div>
+                    <label class="form-label">رمز العداد</label>
+                    <InputText class="form-control" @bind-Value="form.MeterCode" />
+                </div>
+                <div class="form-row">
+                    <div>
+                        <label class="form-label">معامل التحويل</label>
+                        <InputNumber class="form-control" @bind-Value="form.ConversionFactor" />
+                    </div>
+                    <div>
+                        <label class="form-label">أقصى قيمة للعداد</label>
+                        <InputNumber class="form-control" @bind-Value="form.MaxCounter" />
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="alert @messageCss">@message</div>
+                }
+                <div class="button-row">
+                    <button class="btn btn-primary" type="submit" disabled="@isSaving">حفظ</button>
+                    <button class="btn btn-light" type="button" @onclick="ResetForm">تفريغ</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel wide-panel">
+        <div class="panel-header">
+            <div>
+                <h2>قائمة الأقسام</h2>
+                <p>@departments.Count قسم مسجل.</p>
+            </div>
+            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-panel">جاري تحميل الأقسام...</div>
+        }
+        else if (!FilteredDepartments.Any())
+        {
+            <EmptyState Text="لا توجد أقسام مطابقة للبحث." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>القسم</th>
+                            <th>رمز العداد</th>
+                            <th>معامل التحويل</th>
+                            <th>أقصى عداد</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var department in FilteredDepartments)
+                        {
+                            <tr>
+                                <td><strong>@department.Name</strong></td>
+                                <td>@department.MeterCode</td>
+                                <td>@department.ConversionFactor</td>
+                                <td>@department.MaxCounter.ToString("N0")</td>
+                                <td class="table-actions">
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => EditDepartment(department)">تعديل</button>
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteDepartment(department.Id)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<DepartmentResponseDto> departments = [];
+    private DepartmentForm form = new();
+    private int? editingId;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string searchText = "";
+    private string message = "";
+    private string messageCss = "alert-success";
+
+    private IEnumerable<DepartmentResponseDto> FilteredDepartments =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? departments
+            : departments.Where(x => x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.MeterCode.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDepartments();
+    }
+
+    private async Task LoadDepartments()
+    {
+        isLoading = true;
+        departments = await Api.GetDepartmentsAsync();
+        isLoading = false;
+    }
+
+    private async Task SaveDepartment()
+    {
+        isSaving = true;
+        message = "";
+
+        try
+        {
+            if (editingId is int id)
+            {
+                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter));
+                ShowSuccess("تم تعديل القسم بنجاح.");
+            }
+            else
+            {
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter));
+                ShowSuccess("تمت إضافة القسم بنجاح.");
+            }
+
+            ResetForm();
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void EditDepartment(DepartmentResponseDto department)
+    {
+        editingId = department.Id;
+        form = new DepartmentForm
+        {
+            Name = department.Name,
+            MeterCode = department.MeterCode,
+            ConversionFactor = department.ConversionFactor,
+            MaxCounter = department.MaxCounter
+        };
+    }
+
+    private async Task DeleteDepartment(int id)
+    {
+        try
+        {
+            await Api.DeleteDepartmentAsync(id);
+            ShowSuccess("تم حذف القسم.");
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private void ResetForm()
+    {
+        editingId = null;
+        form = new DepartmentForm();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+
+    private sealed class DepartmentForm
+    {
+        public string Name { get; set; } = "";
+        public string MeterCode { get; set; } = "";
+        public decimal ConversionFactor { get; set; } = 1;
+        public double MaxCounter { get; set; } = 99999;
+    }
+}

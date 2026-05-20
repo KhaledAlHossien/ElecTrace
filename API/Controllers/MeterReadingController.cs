@@ -58,6 +58,10 @@ namespace API.Controllers
         public async Task<IActionResult> DownloadElectricityExcelReport([FromQuery] Months month, [FromQuery] int year)
         {
             var fileBytes = await _mediator.Send(new GetElectricityExcelReportQuery(month, year));
+            if (fileBytes.Length == 0)
+            {
+                return NotFound(new { message = $"لا توجد قراءات مسجلة للشهر {(int)month} لعام {year}." });
+            }
 
             string fileName = $"Electricity_Report_{year}_{((int)month)}.xlsx";
 
@@ -69,6 +73,10 @@ namespace API.Controllers
         public async Task<IActionResult> DownloadAllInvoices([FromQuery] Domain.Enums.Months month, [FromQuery] int year)
         {
             var fileBytes = await _mediator.Send(new GetAllInvoicesExcelQuery(month, year));
+            if (fileBytes.Length == 0)
+            {
+                return NotFound(new { message = $"لا توجد فواتير أو قراءات مسجلة للشهر {(int)month} لعام {year}." });
+            }
 
             string fileName = $"All_Invoices_{year}_{((int)month)}.xlsx";
 

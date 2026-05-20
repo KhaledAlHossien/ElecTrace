@@ -34,7 +34,7 @@ namespace Application.Features.Report.Queries.GetElectricityExcelReport
 
             if (readings == null || !readings.Any())
             {
-                throw new KeyNotFoundException($"لا توجد بيانات قراءات مسجلة للشهر {(int)request.Month} لعام {request.Year}");
+                return Array.Empty<byte>();
             }
 
             int currentMonthNumber = (int)request.Month;

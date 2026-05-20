@@ -1,0 +1,189 @@
+@page "/roles"
+@attribute [Authorize]
+@inject IApiDataService Api
+
+<PageTitle>الأدوار</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">إدارة الصلاحيات</p>
+        <h1>الأدوار</h1>
+        <p>إنشاء وعرض وتعديل وحذف الأدوار المستخدمة عند تعريف المستخدمين.</p>
+    </div>
+</section>
+
+<section class="content-grid two-columns">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>@(editingId is null ? "إضافة دور" : "تعديل دور")</h2>
+                <p>اكتب اسم الدور بشكل واضح مثل Admin أو User.</p>
+            </div>
+        </div>
+
+        <EditForm Model="@form" OnValidSubmit="SaveRole">
+            <DataAnnotationsValidator />
+            <div class="form-stack">
+                <div>
+                    <label class="form-label">اسم الدور</label>
+                    <InputText class="form-control" @bind-Value="form.Name" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="alert @messageCss">@message</div>
+                }
+                <div class="button-row">
+                    <button class="btn btn-primary" type="submit" disabled="@isSaving">حفظ</button>
+                    <button class="btn btn-light" type="button" @onclick="ResetForm">تفريغ</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel wide-panel">
+        <div class="panel-header">
+            <div>
+                <h2>قائمة الأدوار</h2>
+                <p>@roles.Count دور مسجل.</p>
+            </div>
+            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-panel">جاري تحميل الأدوار...</div>
+        }
+        else if (!FilteredRoles.Any())
+        {
+            <EmptyState Text="لا توجد أدوار مطابقة." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>الدور</th>
+                            <th>المعرف</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var role in FilteredRoles)
+                        {
+                            <tr>
+                                <td><strong>@role.Name</strong></td>
+                                <td>@role.Id</td>
+                                <td class="table-actions">
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => EditRole(role)">تعديل</button>
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteRole(role.Id)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<RoleResponseDto> roles = [];
+    private RoleRequestDto form = new() { Name = "" };
+    private int? editingId;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string searchText = "";
+    private string message = "";
+    private string messageCss = "alert-success";
+
+    private IEnumerable<RoleResponseDto> FilteredRoles =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? roles
+            : roles.Where(x => x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoles();
+    }
+
+    private async Task LoadRoles()
+    {
+        isLoading = true;
+        roles = await Api.GetRolesAsync();
+        isLoading = false;
+    }
+
+    private async Task SaveRole()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name))
+        {
+            ShowError("اسم الدور مطلوب.");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            if (editingId is int id)
+            {
+                await Api.UpdateRoleAsync(id, form);
+                ShowSuccess("تم تعديل الدور.");
+            }
+            else
+            {
+                await Api.CreateRoleAsync(form);
+                ShowSuccess("تم إنشاء الدور.");
+            }
+
+            ResetForm();
+            await LoadRoles();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void EditRole(RoleResponseDto role)
+    {
+        editingId = role.Id;
+        form = new RoleRequestDto { Name = role.Name };
+    }
+
+    private async Task DeleteRole(int id)
+    {
+        try
+        {
+            await Api.DeleteRoleAsync(id);
+            ShowSuccess("تم حذف الدور.");
+            await LoadRoles();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private void ResetForm()
+    {
+        editingId = null;
+        form = new RoleRequestDto { Name = "" };
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+}

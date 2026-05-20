@@ -1,0 +1,228 @@
+@page "/users"
+@attribute [Authorize]
+@inject IApiDataService Api
+
+<PageTitle>المستخدمون</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">الصلاحيات</p>
+        <h1>المستخدمون</h1>
+        <p>إدارة حسابات الدخول وربط كل مستخدم بالدور المناسب.</p>
+    </div>
+</section>
+
+<section class="content-grid two-columns">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>@(editingId is null ? "إضافة مستخدم" : "تعديل مستخدم")</h2>
+                <p>اترك كلمة المرور فارغة عند التعديل إذا لم ترغب بتغييرها.</p>
+            </div>
+        </div>
+
+        <EditForm Model="@form" OnValidSubmit="SaveUser">
+            <DataAnnotationsValidator />
+            <div class="form-stack">
+                <div>
+                    <label class="form-label">الاسم الكامل</label>
+                    <InputText class="form-control" @bind-Value="form.Name" />
+                </div>
+                <div>
+                    <label class="form-label">اسم المستخدم</label>
+                    <InputText class="form-control" @bind-Value="form.UserName" />
+                </div>
+                <div>
+                    <label class="form-label">كلمة المرور</label>
+                    <InputText class="form-control" type="password" @bind-Value="form.Password" />
+                </div>
+                @if (editingId is null)
+                {
+                    <div>
+                        <label class="form-label">الدور</label>
+                        <InputSelect class="form-select" @bind-Value="form.RoleId">
+                            <option value="0">اختر الدور</option>
+                            @foreach (var role in roles)
+                            {
+                                <option value="@role.Id">@role.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="alert @messageCss">@message</div>
+                }
+                <div class="button-row">
+                    <button class="btn btn-primary" type="submit" disabled="@isSaving">حفظ</button>
+                    <button class="btn btn-light" type="button" @onclick="ResetForm">تفريغ</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel wide-panel">
+        <div class="panel-header">
+            <div>
+                <h2>قائمة المستخدمين</h2>
+                <p>@users.Count حساب مسجل.</p>
+            </div>
+            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading-panel">جاري تحميل المستخدمين...</div>
+        }
+        else if (!FilteredUsers.Any())
+        {
+            <EmptyState Text="لا توجد حسابات مطابقة." />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>اسم المستخدم</th>
+                            <th>الدور</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in FilteredUsers)
+                        {
+                            <tr>
+                                <td><strong>@user.name</strong></td>
+                                <td>@user.UserName</td>
+                                <td><span class="status-pill">@user.RoleName</span></td>
+                                <td class="table-actions">
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => EditUser(user)">تعديل</button>
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteUser(user.Id)">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<UserResponseDto> users = [];
+    private List<RoleResponseDto> roles = [];
+    private UserForm form = new();
+    private int? editingId;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string searchText = "";
+    private string message = "";
+    private string messageCss = "alert-success";
+
+    private IEnumerable<UserResponseDto> FilteredUsers =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? users
+            : users.Where(x => x.name.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.UserName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.RoleName.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        roles = await Api.GetRolesAsync();
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        users = await Api.GetUsersAsync();
+        isLoading = false;
+    }
+
+    private async Task SaveUser()
+    {
+        isSaving = true;
+        try
+        {
+            if (editingId is int id)
+            {
+                await Api.UpdateUserAsync(id, new UpdateUserRequestDto(form.Name, form.UserName, string.IsNullOrWhiteSpace(form.Password) ? null : form.Password));
+                ShowSuccess("تم تعديل المستخدم.");
+            }
+            else
+            {
+                if (form.RoleId == 0)
+                {
+                    ShowError("اختر الدور قبل حفظ المستخدم.");
+                    return;
+                }
+
+                await Api.CreateUserAsync(new CreateUserRequestDto(form.Name, form.UserName, form.Password, form.RoleId));
+                ShowSuccess("تمت إضافة المستخدم.");
+            }
+
+            ResetForm();
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void EditUser(UserResponseDto user)
+    {
+        editingId = user.Id;
+        form = new UserForm
+        {
+            Name = user.name,
+            UserName = user.UserName
+        };
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        try
+        {
+            await Api.DeleteUserAsync(id);
+            ShowSuccess("تم حذف المستخدم.");
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private void ResetForm()
+    {
+        editingId = null;
+        form = new UserForm();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+
+    private sealed class UserForm
+    {
+        public string Name { get; set; } = "";
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+        public int RoleId { get; set; }
+    }
+}

@@ -1,0 +1,131 @@
+@page "/reports"
+@attribute [Authorize]
+@inject IApiDataService Api
+@inject IJSRuntime Js
+
+<PageTitle>التقارير</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Excel</p>
+        <h1>تقارير الكهرباء</h1>
+        <p>تنزيل تقرير الاستهلاك الشهري أو فواتير كل الأقسام كملف Excel.</p>
+    </div>
+</section>
+
+<section class="panel reports-panel">
+    <div class="panel-header filter-header">
+        <div>
+            <h2>اختر الفترة</h2>
+            <p>إذا لم تكن هناك قراءات، ستظهر رسالة واضحة بدون فتح صفحة خطأ.</p>
+        </div>
+        <div class="filters">
+            <select class="form-select" @bind="selectedMonth">
+                @foreach (var month in Enum.GetValues<Months>())
+                {
+                    <option value="@month">@MonthName(month)</option>
+                }
+            </select>
+            <input class="form-control year-input" type="number" @bind="selectedYear" />
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="alert @messageCss">@message</div>
+    }
+
+    <div class="report-actions">
+        <button class="report-card report-button" type="button" @onclick="DownloadElectricityReport" disabled="@isDownloading">
+            <span>تقرير الاستهلاك</span>
+            <strong>Electricity Report</strong>
+            <small>قراءات، استهلاك، وقيم الفواتير للشهر المحدد.</small>
+        </button>
+        <button class="report-card report-button" type="button" @onclick="DownloadInvoicesReport" disabled="@isDownloading">
+            <span>كل الفواتير</span>
+            <strong>All Invoices</strong>
+            <small>ملف جاهز للطباعة والمراجعة لكل الأقسام.</small>
+        </button>
+    </div>
+</section>
+
+@code {
+    private Months selectedMonth = (Months)DateTime.Today.Month;
+    private int selectedYear = DateTime.Today.Year;
+    private bool isDownloading;
+    private string message = "";
+    private string messageCss = "alert-info";
+
+    private async Task DownloadElectricityReport()
+    {
+        await DownloadReport(() => Api.DownloadElectricityReportAsync(selectedMonth, selectedYear));
+    }
+
+    private async Task DownloadInvoicesReport()
+    {
+        await DownloadReport(() => Api.DownloadInvoicesReportAsync(selectedMonth, selectedYear));
+    }
+
+    private async Task DownloadReport(Func<Task<ReportDownloadResult>> request)
+    {
+        isDownloading = true;
+        message = "";
+
+        try
+        {
+            var result = await request();
+            if (!result.IsSuccess)
+            {
+                ShowInfo(result.ErrorMessage ?? "لا يوجد تقرير لهذا الشهر.");
+                return;
+            }
+
+            var base64 = Convert.ToBase64String(result.Content!);
+            await Js.InvokeVoidAsync("downloadFileFromBytes", result.FileName, result.ContentType, base64);
+            ShowSuccess("تم تجهيز التقرير وتنزيله.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isDownloading = false;
+        }
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowInfo(string text)
+    {
+        message = text;
+        messageCss = "alert-info";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+
+    private static string MonthName(Months month) => month switch
+    {
+        Months.January => "كانون الثاني",
+        Months.February => "شباط",
+        Months.March => "آذار",
+        Months.April => "نيسان",
+        Months.May => "أيار",
+        Months.June => "حزيران",
+        Months.July => "تموز",
+        Months.August => "آب",
+        Months.September => "أيلول",
+        Months.October => "تشرين الأول",
+        Months.November => "تشرين الثاني",
+        Months.December => "كانون الأول",
+        _ => month.ToString()
+    };
+}

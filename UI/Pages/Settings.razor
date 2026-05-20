@@ -1,0 +1,106 @@
+@page "/settings"
+@attribute [Authorize]
+@inject IApiDataService Api
+
+<PageTitle>الإعدادات</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">إعدادات النظام</p>
+        <h1>سعر الكهرباء</h1>
+        <p>تعديل سعر الكيلو واط المستخدم في حساب الفواتير والتقارير.</p>
+    </div>
+</section>
+
+<section class="content-grid two-columns">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>سعر الكيلو واط</h2>
+                <p>القيمة الحالية تُطبّق على الحسابات الجديدة والتقارير.</p>
+            </div>
+        </div>
+
+        <EditForm Model="@form" OnValidSubmit="SaveSettings">
+            <DataAnnotationsValidator />
+            <div class="form-stack">
+                <label class="form-label">السعر</label>
+                <InputNumber class="form-control form-control-lg" @bind-Value="form.ElectricityPricePerKwh" />
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="alert @messageCss">@message</div>
+                }
+                <button class="btn btn-primary" type="submit" disabled="@(isSaving || systemInfoId is null)">حفظ السعر</button>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>إدارة الأدوار</h2>
+                <p>تم فصل الأدوار بصفحة مستقلة للعرض والتعديل والحذف.</p>
+            </div>
+        </div>
+        <a class="btn btn-outline-primary" href="roles">فتح صفحة الأدوار</a>
+    </div>
+</section>
+
+@code {
+    private SettingsForm form = new();
+    private int? systemInfoId;
+    private bool isSaving;
+    private string message = "";
+    private string messageCss = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var info = (await Api.GetSystemInfoAsync()).FirstOrDefault();
+        if (info is not null)
+        {
+            systemInfoId = info.Id;
+            form.ElectricityPricePerKwh = info.ElectricityPricePerKwh;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (systemInfoId is not int id)
+        {
+            ShowError("لم يتم العثور على إعدادات النظام.");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            await Api.UpdateSystemInfoAsync(id, new UpdateSystemInfoRequestDto(form.ElectricityPricePerKwh));
+            ShowSuccess("تم حفظ سعر الكهرباء.");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "alert-success";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "alert-danger";
+    }
+
+    private sealed class SettingsForm
+    {
+        public decimal ElectricityPricePerKwh { get; set; }
+    }
+}
