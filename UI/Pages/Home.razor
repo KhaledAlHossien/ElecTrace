@@ -1,7 +1,135 @@
-﻿@page "/"
+@page "/"
 @attribute [Authorize]
-<PageTitle>Home</PageTitle>
+@inject IApiDataService Api
 
-<h1>Hello, world!</h1>
+<PageTitle>الرئيسية</PageTitle>
 
-Welcome to your new app.
+<section class="page-header">
+    <div>
+        <p class="eyebrow">لوحة المتابعة</p>
+        <h1>نظرة عامة على فواتير الكهرباء</h1>
+        <p>ملخص سريع للأقسام والقراءات والمستخدمين، مع وصول مباشر للمهام اليومية.</p>
+    </div>
+    <a class="btn btn-primary" href="readings">إدخال قراءة جديدة</a>
+</section>
+
+@if (isLoading)
+{
+    <div class="loading-panel">جاري تحميل البيانات...</div>
+}
+else
+{
+    <section class="metric-grid">
+        <div class="metric-card">
+            <span>الأقسام</span>
+            <strong>@departments.Count</strong>
+            <small>عدادات فعالة ضمن النظام</small>
+        </div>
+        <div class="metric-card">
+            <span>قراءات الشهر</span>
+            <strong>@readings.Count</strong>
+            <small>@MonthName(selectedMonth) @selectedYear</small>
+        </div>
+        <div class="metric-card">
+            <span>الاستهلاك</span>
+            <strong>@readings.Sum(x => x.ActualConsumption).ToString("N0")</strong>
+            <small>كيلو واط ساعي</small>
+        </div>
+        <div class="metric-card">
+            <span>المستخدمون</span>
+            <strong>@users.Count</strong>
+            <small>حسابات لديها صلاحية دخول</small>
+        </div>
+    </section>
+
+    <section class="content-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>أعلى استهلاك هذا الشهر</h2>
+                    <p>حسب القراءات المسجلة حالياً.</p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>القسم</th>
+                            <th>القراءة الحالية</th>
+                            <th>الاستهلاك</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in readings.OrderByDescending(x => x.ActualConsumption).Take(5))
+                        {
+                            <tr>
+                                <td>@(item.Department?.Name ?? $"قسم #{item.DepartmentId}")</td>
+                                <td>@item.CurrentReading.ToString("N0")</td>
+                                <td><span class="status-pill">@item.ActualConsumption.ToString("N0") ك.و.س</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (!readings.Any())
+            {
+                <EmptyState Text="لا توجد قراءات مسجلة للشهر الحالي بعد." />
+            }
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2>مهام سريعة</h2>
+                    <p>اختصارات للعمليات المتكررة.</p>
+                </div>
+            </div>
+            <div class="quick-actions">
+                <a href="departments">إدارة الأقسام</a>
+                <a href="readings">تسجيل القراءات</a>
+                <a href="reports">تنزيل التقارير</a>
+                <a href="settings">تعديل سعر الكهرباء</a>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private readonly Months selectedMonth = (Months)DateTime.Today.Month;
+    private readonly int selectedYear = DateTime.Today.Year;
+    private List<DepartmentResponseDto> departments = [];
+    private List<MeterReadingResponseDto> readings = [];
+    private List<UserResponseDto> users = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            departments = await Api.GetDepartmentsAsync();
+            readings = await Api.GetMeterReadingsAsync(selectedMonth, selectedYear);
+            users = await Api.GetUsersAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string MonthName(Months month) => month switch
+    {
+        Months.January => "كانون الثاني",
+        Months.February => "شباط",
+        Months.March => "آذار",
+        Months.April => "نيسان",
+        Months.May => "أيار",
+        Months.June => "حزيران",
+        Months.July => "تموز",
+        Months.August => "آب",
+        Months.September => "أيلول",
+        Months.October => "تشرين الأول",
+        Months.November => "تشرين الثاني",
+        Months.December => "كانون الأول",
+        _ => month.ToString()
+    };
+}

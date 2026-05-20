@@ -1,24 +1,28 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-@using UI.Services.Interface
-@using UI.Services.Repo
+@using Blazored.LocalStorage
 @inherits LayoutComponentBase
 
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthProvider
+@inject ILocalStorageService LocalStorage
 
-<div class="page">
+<div class="page" dir="rtl">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-            @* زر تسجيل الخروج يظهر فقط عند تسجيل الدخول *@
+            <div>
+                <span class="top-row-title">نظام فواتير الكهرباء</span>
+                <span class="top-row-subtitle">متابعة العدادات والاستهلاك والتقارير</span>
+            </div>
             <AuthorizeView>
                 <Authorized>
-                    <button class="btn btn-danger ms-2" @onclick="Logout">تسجيل الخروج</button>
+                    <div class="user-chip">
+                        <span>@displayName</span>
+                        <button class="btn btn-outline-danger btn-sm" @onclick="Logout">خروج</button>
+                    </div>
                 </Authorized>
             </AuthorizeView>
         </div>
@@ -30,6 +34,15 @@
 </div>
 
 @code {
+    private string displayName = "مستخدم";
+
+    protected override async Task OnInitializedAsync()
+    {
+        displayName = await LocalStorage.GetItemAsync<string>("fullName")
+            ?? await LocalStorage.GetItemAsync<string>("userName")
+            ?? "مستخدم";
+    }
+
     private async Task Logout()
     {
         await AuthService.LogoutAsync();

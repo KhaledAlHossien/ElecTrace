@@ -1,4 +1,5 @@
-﻿@page "/login"
+@page "/login"
+@layout AuthLayout
 @using Application_Contract.DTOs.User
 @using UI.Services.Interface
 @inject IAuthService AuthService
@@ -7,44 +8,48 @@
 
 <PageTitle>تسجيل الدخول</PageTitle>
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6 col-lg-4">
-        <div class="card shadow">
-            <div class="card-body">
-                <h3 class="card-title text-center mb-4">تسجيل الدخول</h3>
-                <EditForm Model="@formModel" OnValidSubmit="@HandleLogin">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary class="text-danger" />
-
-                    <div class="mb-3">
-                        <label for="username" class="form-label">اسم المستخدم</label>
-                        <InputText id="username" class="form-control" @bind-Value="formModel.UserName" />
-                        <ValidationMessage For="@(() => formModel.UserName)" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="password" class="form-label">كلمة المرور</label>
-                        <InputText id="password" type="password" class="form-control" @bind-Value="formModel.Password" />
-                        <ValidationMessage For="@(() => formModel.Password)" />
-                    </div>
-
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger">@errorMessage</div>
-                    }
-
-                    <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
-                        @if (isLoading)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        دخول
-                    </button>
-                </EditForm>
-            </div>
-        </div>
+<section class="login-panel">
+    <div class="login-copy">
+        <span class="brand-mark">ET</span>
+        <p class="eyebrow">ElecTrace</p>
+        <h1>إدارة فواتير الكهرباء من مكان واحد</h1>
+        <p>سجل القراءات، راقب الاستهلاك، وحمّل التقارير الشهرية بسرعة ووضوح.</p>
     </div>
-</div>
+
+    <div class="login-card">
+        <h2>تسجيل الدخول</h2>
+        <p>أدخل بيانات حسابك للمتابعة إلى لوحة التحكم.</p>
+        <EditForm Model="@formModel" OnValidSubmit="@HandleLogin">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label for="username" class="form-label">اسم المستخدم</label>
+                <InputText id="username" class="form-control form-control-lg" @bind-Value="formModel.UserName" />
+                <ValidationMessage For="@(() => formModel.UserName)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">كلمة المرور</label>
+                <InputText id="password" type="password" class="form-control form-control-lg" @bind-Value="formModel.Password" />
+                <ValidationMessage For="@(() => formModel.Password)" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm ms-2"></span>
+                }
+                دخول
+            </button>
+        </EditForm>
+    </div>
+</section>
 
 @code {
     private LoginFormModel formModel = new();
@@ -57,15 +62,12 @@
         errorMessage = string.Empty;
         try
         {
-            // تحويل بيانات النموذج إلى LoginDto (record ثابت)
             var loginDto = new LoginDto(formModel.UserName, formModel.Password);
             var result = await AuthService.LoginAsync(loginDto);
 
-            // إعلام مزود الحالة بأن المستخدم سجل الدخول
             var customProvider = AuthProvider as CustomAuthStateProvider;
             customProvider?.NotifyUserAuthentication(result.Token);
 
-            // توجيه إلى الصفحة الرئيسية
             Navigation.NavigateTo("/", true);
         }
         catch (UnauthorizedAccessException)
@@ -82,7 +84,6 @@
         }
     }
 
-    // نموذج وسيط للربط (قابل للتعديل)
     public class LoginFormModel
     {
         public string UserName { get; set; } = "";

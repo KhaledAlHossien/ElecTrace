@@ -49,9 +49,23 @@ namespace Infrastructure.Servicies
 
         public async Task<IEnumerable<Department>> GetByNameAsync(string name)
         {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return await _context.Departments
+                    .AsNoTracking()
+                    .OrderBy(d => d.Name)
+                    .Take(25)
+                    .ToListAsync();
+            }
+
+            var normalizedName = name.Trim().ToLower();
+
             return await _context.Departments
                 .AsNoTracking()
-                .Where(d => d.Name.ToLower().Contains(name.ToLower()))
+                .Where(d => d.Name.ToLower().Contains(normalizedName)
+                    || d.MeterCode.ToLower().Contains(normalizedName))
+                .OrderBy(d => d.Name)
+                .Take(25)
                 .ToListAsync();
         }
 

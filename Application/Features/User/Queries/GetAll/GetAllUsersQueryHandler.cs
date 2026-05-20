@@ -23,12 +23,7 @@ namespace Application.Features.User.Queries.GetAll
         {
             var users = await _userService.GetAllAsync();
 
-            if (users == null || !users.Any())
-            {
-                throw new KeyNotFoundException("No users found in the system.");
-            }
-
-            return _mapper.Map<List<UserResponseDto>>(users);
+            return _mapper.Map<List<UserResponseDto>>(users ?? []);
         }
     }
 }
