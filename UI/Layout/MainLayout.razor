@@ -1,0 +1,40 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using UI.Services.Interface
+@using UI.Services.Repo
+@inherits LayoutComponentBase
+
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            @* زر تسجيل الخروج يظهر فقط عند تسجيل الدخول *@
+            <AuthorizeView>
+                <Authorized>
+                    <button class="btn btn-danger ms-2" @onclick="Logout">تسجيل الخروج</button>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        var customProvider = AuthProvider as CustomAuthStateProvider;
+        customProvider?.NotifyUserLogout();
+        Navigation.NavigateTo("/login", true);
+    }
+}
