@@ -1,0 +1,91 @@
+﻿@page "/login"
+@using Application_Contract.DTOs.User
+@using UI.Services.Interface
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
+
+<PageTitle>تسجيل الدخول</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body">
+                <h3 class="card-title text-center mb-4">تسجيل الدخول</h3>
+                <EditForm Model="@formModel" OnValidSubmit="@HandleLogin">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">اسم المستخدم</label>
+                        <InputText id="username" class="form-control" @bind-Value="formModel.UserName" />
+                        <ValidationMessage For="@(() => formModel.UserName)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">كلمة المرور</label>
+                        <InputText id="password" type="password" class="form-control" @bind-Value="formModel.Password" />
+                        <ValidationMessage For="@(() => formModel.Password)" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        دخول
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginFormModel formModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        try
+        {
+            // تحويل بيانات النموذج إلى LoginDto (record ثابت)
+            var loginDto = new LoginDto(formModel.UserName, formModel.Password);
+            var result = await AuthService.LoginAsync(loginDto);
+
+            // إعلام مزود الحالة بأن المستخدم سجل الدخول
+            var customProvider = AuthProvider as CustomAuthStateProvider;
+            customProvider?.NotifyUserAuthentication(result.Token);
+
+            // توجيه إلى الصفحة الرئيسية
+            Navigation.NavigateTo("/", true);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            errorMessage = "اسم المستخدم أو كلمة المرور غير صحيحة.";
+        }
+        catch (Exception)
+        {
+            errorMessage = "حدث خطأ أثناء محاولة الدخول. حاول مرة أخرى.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // نموذج وسيط للربط (قابل للتعديل)
+    public class LoginFormModel
+    {
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

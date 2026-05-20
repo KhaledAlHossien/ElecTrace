@@ -5,5 +5,5 @@
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Infrastructure/Infrastructure.csproj" />
   <Project Path="Persistence/Persistence.csproj" />
-  <Project Path="UI/UI/UI.csproj" />
+  <Project Path="UI/UI.csproj" Id="fb2fa658-e81c-4b8b-888a-588eccf5d25e" />
 </Solution>

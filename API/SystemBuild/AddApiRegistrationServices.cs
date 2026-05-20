@@ -7,7 +7,7 @@ using System.Text;
 
 namespace API.SystemBuild
 {
-    
+
     public static class DependencyInjection
     {
         public static IServiceCollection AddApiRegistrationServices(this IServiceCollection services, IConfiguration configuration)
@@ -80,8 +80,21 @@ namespace API.SystemBuild
             // تسجيل خدمات الطبقات الأخرى (مشروع QIMS)
 
             services.AddApplicationRegistrationservices();
-           
+
             services.AddInfrastructureServices(configuration);
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowBlazor", policy =>
+                {
+                    policy.WithOrigins("https://localhost:7281")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials();
+                });
+            });
+
+
 
             return services;
         }
