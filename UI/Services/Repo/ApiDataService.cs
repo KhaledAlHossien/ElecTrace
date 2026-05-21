@@ -53,6 +53,36 @@ public class ApiDataService : IApiDataService
         await DeleteAsync($"api/Department/Delete/{id}");
     }
 
+    //public async Task<(byte[] Content, string FileName)> ExportMeterCodesToExcelAsync()
+    //{
+    //    var response = await _httpClient.GetAsync("api/Department/GetAllMeterCodeToExcel");
+    //    response.EnsureSuccessStatusCode();
+    //    var content = await response.Content.ReadAsByteArrayAsync();
+
+    //    // محاولة استخراج اسم الملف من Content-Disposition
+    //    var fileName = "MeterCodes.xlsx"; // القيمة الافتراضية
+    //    if (response.Content.Headers.ContentDisposition != null)
+    //    {
+    //        var cd = response.Content.Headers.ContentDisposition;
+    //        fileName = cd.FileNameStar ?? cd.FileName ?? fileName;
+    //    }
+    //    return (content, fileName);
+    //}
+
+    public async Task<(byte[] Content, string FileName)> ExportMeterCodesToExcelAsync()
+    {
+        var response = await _httpClient.GetAsync("api/Department/GetAllMeterCodeToExcel");
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsByteArrayAsync();
+
+        // إنشاء اسم الملف مع التاريخ الحالي
+        var fileName = $"MeterCodes_{DateTime.Now:yyyyMMdd}.xlsx";
+
+        return (content, fileName);
+    }
+
+
     public async Task<List<MeterReadingResponseDto>> GetMeterReadingsAsync(Months month, int year)
     {
         return await GetListAsync<MeterReadingResponseDto>($"api/MeterReading/GetByMonthAndYear?month={month}&year={year}");

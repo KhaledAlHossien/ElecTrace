@@ -2,8 +2,11 @@
 using Application.Features.Department.Command.Delete;
 using Application.Features.Department.Command.Update;
 using Application.Features.Department.Queries.GetAll;
+using Application.Features.Department.Queries.GetAllMeterCode;
+using Application.Features.Department.Queries.GetAllMeterCodeExcelReport;
 using Application.Features.Department.Queries.GetById;
 using Application.Features.Department.Queries.Search;
+
 using Application_Contract.DTOs.Department;
 using Application_Contract.DTOs.User;
 using MediatR;
@@ -64,6 +67,29 @@ namespace API.Controllers
         {
             var result = await _mediator.Send(new GetAllDepartmentsQuery());
             return Ok(result);
+        }
+
+        [HttpGet("GetAllMeterCode")]
+        public async Task<IActionResult> GetAllMeterCode()
+        {
+            var result = await _mediator.Send(new GetAllMeterCodeQuery());
+
+            return Ok(result);
+        }
+
+        [HttpGet("GetAllMeterCodeToExcel")]
+        public async Task<IActionResult> ExportMeterCodesToExcel()
+        {
+            var fileBytes = await _mediator.Send(new GetAllMeterCodeToExcelReportQuery());
+
+            if (fileBytes == null || fileBytes.Length == 0)
+                return NotFound("لا توجد بيانات لتصديرها.");
+
+            return File(
+                fileBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"MeterCodes_{DateTime.Now:yyyyMMdd}.xlsx"
+            );
         }
 
     }
