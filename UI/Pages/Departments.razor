@@ -1,6 +1,7 @@
 @page "/departments"
 @attribute [Authorize]
 @inject IApiDataService Api
+@inject IJSRuntime JS
 
 <PageTitle>الأقسام والعدادات</PageTitle>
 
@@ -60,7 +61,12 @@
                 <h2>قائمة الأقسام</h2>
                 <p>@departments.Count قسم مسجل.</p>
             </div>
-            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-success" @onclick="ExportToExcel" disabled="@isExporting">
+                    @(isExporting ? "جاري التصدير..." : "📊 تصدير إلى Excel")
+                </button>
+                <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+            </div>
         </div>
 
         @if (isLoading)
@@ -111,6 +117,7 @@
     private int? editingId;
     private bool isLoading = true;
     private bool isSaving;
+    private bool isExporting;
     private string searchText = "";
     private string message = "";
     private string messageCss = "alert-success";
@@ -187,6 +194,26 @@
         catch (Exception ex)
         {
             ShowError(ex.Message);
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            isExporting = true;
+            var (content, fileName) = await Api.ExportMeterCodesToExcelAsync();
+            using var streamRef = new DotNetStreamReference(new MemoryStream(content));
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+            ShowSuccess("تم تصدير التقرير بنجاح.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("فشل تصدير التقرير: " + ex.Message);
+        }
+        finally
+        {
+            isExporting = false;
         }
     }
 

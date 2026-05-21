@@ -20,6 +20,7 @@ namespace Application.Helper.Profiles
                   .ForMember(dest => dest.ConversionFactor, opt => opt.Condition(src => src.ConversionFactor.HasValue))
                   .ForMember(dest => dest.MaxCounter, opt => opt.Condition(src => src.MaxCounter.HasValue))
                   .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+            CreateMap<Department, MeterCodeNameDto>();
         }
     }
 }
