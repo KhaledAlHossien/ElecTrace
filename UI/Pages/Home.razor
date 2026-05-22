@@ -8,7 +8,7 @@
     <div>
         <p class="eyebrow">لوحة المتابعة</p>
         <h1>نظرة عامة على فواتير الكهرباء</h1>
-        <p>ملخص سريع للأقسام والقراءات والمستخدمين، مع وصول مباشر للمهام اليومية.</p>
+        <p>ملخص سريع للأقسام والقراءات والمستحقات المادية، مع وصول مباشر للمهام اليومية.</p>
     </div>
     <a class="btn btn-primary" href="readings">إدخال قراءة جديدة</a>
 </section>
@@ -31,9 +31,14 @@ else
             <small>@MonthName(selectedMonth) @selectedYear</small>
         </div>
         <div class="metric-card">
-            <span>الاستهلاك</span>
+            <span>الاستهلاك الكلي</span>
             <strong>@readings.Sum(x => x.ActualConsumption).ToString("N0")</strong>
             <small>كيلو واط ساعي</small>
+        </div>
+        <div class="metric-card">
+            <span>التكلفة الإجمالية</span>
+            <strong style="color: var(--primary-color, #2b6cb0);">@readings.Sum(x => x.TotalCost).ToString("N0") ل.س</strong>
+            <small>صافي المستحقات بعد الخصم</small>
         </div>
         <div class="metric-card">
             <span>المستخدمون</span>
@@ -46,8 +51,8 @@ else
         <div class="panel">
             <div class="panel-header">
                 <div>
-                    <h2>أعلى استهلاك هذا الشهر</h2>
-                    <p>حسب القراءات المسجلة حالياً.</p>
+                    <h2>أعلى استهلاك وتكلفة هذا الشهر</h2>
+                    <p>حسب القراءات المسجلة حالياً لأعلى 5 أقسام.</p>
                 </div>
             </div>
             <div class="table-responsive">
@@ -57,15 +62,17 @@ else
                             <th>القسم</th>
                             <th>القراءة الحالية</th>
                             <th>الاستهلاك</th>
+                            <th>التكلفة الصافية</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in readings.OrderByDescending(x => x.ActualConsumption).Take(5))
                         {
                             <tr>
-                                <td>@(item.Department?.Name ?? $"قسم #{item.DepartmentId}")</td>
+                                <td><strong>@item.DepartmentName</strong></td>
                                 <td>@item.CurrentReading.ToString("N0")</td>
                                 <td><span class="status-pill">@item.ActualConsumption.ToString("N0") ك.و.س</span></td>
+                                <td><strong>@item.TotalCost.ToString("N0") ل.س</strong></td>
                             </tr>
                         }
                     </tbody>

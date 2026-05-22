@@ -15,6 +15,6 @@ namespace Domain.Entities
 
         public double MaxCounter { get; set; }
 
-
+        public decimal Discount { get; set; } = 0;
     }
 }

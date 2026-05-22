@@ -5,6 +5,8 @@ using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Application.Features.Department.Command.Update
 {
@@ -35,12 +37,15 @@ namespace Application.Features.Department.Command.Update
                 dept.MeterCode = dto.MeterCode;
             }
 
-      
             if (dto.ConversionFactor.HasValue)
                 dept.ConversionFactor = dto.ConversionFactor.Value;
 
             if (dto.MaxCounter.HasValue)
                 dept.MaxCounter = dto.MaxCounter.Value;
+
+            // ⚠️ تم الإصلاح هنا: فحص القيمة وتمريرها باستخدام .Value لإنهاء خطأ الـ Cast
+            if (dto.Discount.HasValue)
+                dept.Discount = dto.Discount.Value;
 
             await _deptService.UpdateAsync(dept);
 

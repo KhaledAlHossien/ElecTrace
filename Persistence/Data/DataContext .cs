@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Reflection.Emit;
 using System.Text;
 
 namespace Persistence.Data
@@ -42,14 +43,16 @@ namespace Persistence.Data
             builder.Entity<Department>()
                 .HasIndex(d => d.MeterCode)
                 .IsUnique();
-
+            builder.Entity<Department>()
+                .Property(d => d.Discount)
+                .HasDefaultValue(0);
 
             builder.Entity<Role>().HasData(
                   new Role { Id = 1, Name = "Admin" },
                    new Role { Id = 2, Name = "Employee" }
             );
 
-            
+
 
         }
     }

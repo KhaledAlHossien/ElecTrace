@@ -12,7 +12,7 @@ namespace Application.Helper.Profiles
         public MeterReadingProfile()
         {
             CreateMap<MeterReading, MeterReadingResponseDto>();
-
+                           
             CreateMap<CreateMeterReadingRequestDto, MeterReading>();
 
             CreateMap<UpdateMeterReadingRequestDto, MeterReading>()

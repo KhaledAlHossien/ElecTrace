@@ -11,6 +11,7 @@ namespace Domain.Entities
 
         public int DepartmentId { get; set; }
         public Department? Department { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
 
 
         public Months Month { get; set; }
@@ -20,7 +21,7 @@ namespace Domain.Entities
         public decimal CurrentReading { get; set; }
 
         public decimal ActualConsumption { get; private set; }
-
+        public decimal TotalCost { get; private set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         /// <summary>
@@ -40,6 +41,14 @@ namespace Domain.Entities
             {
                 ActualConsumption = difference;
             }
+        }
+        public void CalculateTotalCost(decimal pricePerKwh, decimal departmentDiscount)
+        {
+            decimal costBeforeDiscount = ActualConsumption * pricePerKwh;
+            decimal costAfterDiscount = costBeforeDiscount - departmentDiscount;
+
+            // حماية لكي لا تصبح الفاتورة بالسالب إذا كان الخصم أكبر من الاستهلاك
+            TotalCost = costAfterDiscount < 0 ? 0 : costAfterDiscount;
         }
     }
 }

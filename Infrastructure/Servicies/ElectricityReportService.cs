@@ -7,6 +7,7 @@ using QRCoder;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Text;
 
 namespace Infrastructure.Servicies
@@ -48,8 +49,8 @@ namespace Infrastructure.Servicies
                     cell.Style.Font.Bold = true;
                     cell.Style.Font.FontColor = XLColor.White;
                     cell.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#34495e"))
-                              .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                              .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+                               .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+                               .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
                 }
 
                 int startRowIndex = 5;
@@ -64,6 +65,8 @@ namespace Infrastructure.Servicies
                     worksheet.Cell(currentRowIndex, 5).Value = item.ActualConsumption;
                     worksheet.Cell(currentRowIndex, 6).Value = item.ConversionFactor;
                     worksheet.Cell(currentRowIndex, 7).Value = item.PricePerKilo;
+
+                    // ⚠️ تم التحديث هنا: أخذ التوتل كوست الصافي والمحسوب من قاعدة البيانات مباشرة
                     worksheet.Cell(currentRowIndex, 8).Value = item.TotalCost;
 
                     var dataRange = worksheet.Range(currentRowIndex, 1, currentRowIndex, 8);
@@ -188,6 +191,7 @@ namespace Infrastructure.Servicies
                     totalBoxStyle.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
                     totalBoxStyle.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
+                    // ⚠️ تم التأكيد هنا: قراءة الحقل المالي الإجمالي الفردي بشكل منسق ومطابق
                     worksheet.Cell(labelRow, 5).Value = $"إجمالي الفاتورة\n{invoiceData.TotalCost:N0} ل.س.";
                     worksheet.Cell(labelRow, 5).Style.Font.Bold = true;
                     worksheet.Cell(labelRow, 5).Style.Font.FontSize = 12;
@@ -267,7 +271,6 @@ namespace Infrastructure.Servicies
                 worksheet.Cell(row, 2).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
                 worksheet.Cell(row, 2).Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
-                // ✅ التعديل: QR Code يحتوي فقط على MeterCode
                 var qrCodeText = dept.MeterCode;
                 var qrImage = GenerateQRCodeBytes(qrCodeText, 90, 90);
 

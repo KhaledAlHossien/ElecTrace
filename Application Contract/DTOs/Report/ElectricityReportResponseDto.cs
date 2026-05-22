@@ -18,6 +18,6 @@ namespace Application_Contract.DTOs.Report
         public decimal ConversionFactor { get; set; } 
         public decimal PricePerKilo { get; set; } 
 
-        public decimal TotalCost => ActualConsumption * (decimal)ConversionFactor * PricePerKilo;
+        public decimal TotalCost { get; set; }
     }
 }

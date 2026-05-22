@@ -5,4 +5,5 @@ using System.Text;
 namespace Application_Contract.DTOs.Department
 {
     public record MeterCodeNameDto(string MeterCode, string Name);
+
 }
