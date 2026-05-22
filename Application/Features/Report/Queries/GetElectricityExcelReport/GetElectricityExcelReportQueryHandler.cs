@@ -3,7 +3,9 @@ using Application_Contract.Interfaces;
 using MediatR;
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Application.Features.Report.Queries.GetElectricityExcelReport
 {
@@ -46,7 +48,9 @@ namespace Application.Features.Report.Queries.GetElectricityExcelReport
             var reportData = readings.Select(m => new ElectricityReportResponseDto
             {
                 Number = index++,
-                DepartmentName = m.Department?.Name ?? "قسم غير معروف",
+                // ⚠️ تعديل: استخدام الـ Snapshot المخزن (DepartmentName) لضمان دقة التقرير التاريخي
+                DepartmentName = !string.IsNullOrEmpty(m.DepartmentName) ? m.DepartmentName : (m.Department?.Name ?? "قسم غير معروف"),
+
                 PreviousMonthLabel = $"تأشيرة نهاية شهر {previousMonthNumber}",
                 CurrentMonthLabel = $"تأشيرة نهاية شهر {currentMonthNumber}",
                 PreviousReading = m.PreviousReading,
@@ -54,8 +58,10 @@ namespace Application.Features.Report.Queries.GetElectricityExcelReport
                 ActualConsumption = m.ActualConsumption,
 
                 ConversionFactor = m.Department?.ConversionFactor ?? 1,
+                PricePerKilo = price,
 
-                PricePerKilo = price
+                // ⚠️ إضافة التكلفة الكلية الصافية المخزنة في القراءة
+                TotalCost = m.TotalCost
             }).ToList();
 
             return _excelService.GenerateElectricityExcelReport(reportData, excelHeaderTitle);

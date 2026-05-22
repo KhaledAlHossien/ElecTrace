@@ -8,7 +8,7 @@
     <div>
         <p class="eyebrow">الاستهلاك الشهري</p>
         <h1>قراءات الكهرباء</h1>
-        <p>سجل القراءة الحالية لكل قسم، واستعرض الاستهلاك المحسوب حسب الشهر والسنة.</p>
+        <p>سجل القراءة الحالية لكل قسم، واستعرض الاستهلاك والتكلفة المحسوبة حسب الشهر والسنة.</p>
     </div>
 </section>
 
@@ -109,6 +109,7 @@
                             <th>السابقة</th>
                             <th>الحالية</th>
                             <th>الاستهلاك</th>
+                            <th>السعر الإجمالي</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -116,11 +117,12 @@
                         @foreach (var reading in readings)
                         {
                             <tr>
-                                <td><strong>@(reading.Department?.Name ?? $"قسم #{reading.DepartmentId}")</strong></td>
+                                <td><strong>@reading.DepartmentName</strong></td>
                                 <td>@MonthName(reading.Month)</td>
                                 <td>@reading.PreviousReading.ToString("N0")</td>
                                 <td>@reading.CurrentReading.ToString("N0")</td>
                                 <td><span class="status-pill">@reading.ActualConsumption.ToString("N0") ك.و.س</span></td>
+                                <td><strong>@reading.TotalCost.ToString("N0") ل.س</strong></td>
                                 <td class="table-actions">
                                     <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteReading(reading.Id)">حذف</button>
                                 </td>

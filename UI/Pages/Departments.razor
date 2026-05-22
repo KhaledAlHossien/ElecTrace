@@ -9,7 +9,7 @@
     <div>
         <p class="eyebrow">إدارة العدادات</p>
         <h1>الأقسام والعدادات</h1>
-        <p>تعريف الأقسام، رقم العداد، معامل التحويل، والحد الأعلى للعداد.</p>
+        <p>تعريف الأقسام، رقم العداد، معامل التحويل، الحد الأعلى للعداد، ومبلغ الخصم الثابت.</p>
     </div>
 </section>
 
@@ -43,6 +43,12 @@
                         <InputNumber class="form-control" @bind-Value="form.MaxCounter" />
                     </div>
                 </div>
+                <div>
+                    <label class="form-label">قيمة الخصم (مبلغ ثابت)</label>
+                    <InputNumber class="form-control" @bind-Value="form.DiscountAmount" placeholder="0" />
+                    <div class="field-hint">ادخل قيمة الخصم كمبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
+                </div>
+
                 @if (!string.IsNullOrWhiteSpace(message))
                 {
                     <div class="alert @messageCss">@message</div>
@@ -87,6 +93,7 @@
                             <th>رمز العداد</th>
                             <th>معامل التحويل</th>
                             <th>أقصى عداد</th>
+                            <th>الخصم</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -98,6 +105,7 @@
                                 <td>@department.MeterCode</td>
                                 <td>@department.ConversionFactor</td>
                                 <td>@department.MaxCounter.ToString("N0")</td>
+                                <td>@department.Discount.ToString("N0") ل.س</td>
                                 <td class="table-actions">
                                     <button class="btn btn-outline-primary btn-sm" @onclick="() => EditDepartment(department)">تعديل</button>
                                     <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteDepartment(department.Id)">حذف</button>
@@ -149,12 +157,14 @@
         {
             if (editingId is int id)
             {
-                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter));
+                // ⚠️ تمرير مبلغ الخصم الثابت هنا
+                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter, form.DiscountAmount));
                 ShowSuccess("تم تعديل القسم بنجاح.");
             }
             else
             {
-                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter));
+                // ⚠️ تمرير مبلغ الخصم الثابت هنا
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter, form.DiscountAmount));
                 ShowSuccess("تمت إضافة القسم بنجاح.");
             }
 
@@ -179,7 +189,8 @@
             Name = department.Name,
             MeterCode = department.MeterCode,
             ConversionFactor = department.ConversionFactor,
-            MaxCounter = department.MaxCounter
+            MaxCounter = department.MaxCounter,
+            DiscountAmount = department.Discount // ⚠️ تعبئة مبلغ الخصم للتعديل
         };
     }
 
@@ -241,5 +252,6 @@
         public string MeterCode { get; set; } = "";
         public decimal ConversionFactor { get; set; } = 1;
         public double MaxCounter { get; set; } = 99999;
+        public decimal DiscountAmount { get; set; } = 0; // ⚠️ إضافة الحقل المالي للـ Form بقيمة افتراضية 0
     }
 }
