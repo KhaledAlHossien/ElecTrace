@@ -12,26 +12,20 @@ namespace Application.Features.Report.Queries.GetElectricityExcelReport
     public class GetElectricityExcelReportQueryHandler : IRequestHandler<GetElectricityExcelReportQuery, byte[]>
     {
         private readonly IMeterReadingService _meterReadingService;
-        private readonly ISystemInfoService _systemInfoService;
         private readonly IElectricityReportService _excelService;
 
+        // لا نحتاج لـ ISystemInfoService هنا لأننا نعتمد على البيانات التاريخية المخزنة في القراءة نفسها
         public GetElectricityExcelReportQueryHandler(
             IMeterReadingService meterReadingService,
-            ISystemInfoService systemInfoService,
             IElectricityReportService excelService)
         {
             _meterReadingService = meterReadingService;
-            _systemInfoService = systemInfoService;
             _excelService = excelService;
         }
 
         public async Task<byte[]> Handle(GetElectricityExcelReportQuery request, CancellationToken cancellationToken)
         {
-            var systemInfoList = await _systemInfoService.GetAllAsync();
-            var systemInfo = systemInfoList?.FirstOrDefault();
-
-            decimal price = systemInfo?.ElectricityPricePerKwh ?? 2.50m;
-
+            // جلب القراءات الخاصة بالشهر والسنة المطلوبة
             var readings = await _meterReadingService.GetByMonthAndYearAsync(request.Month, request.Year);
 
             if (readings == null || !readings.Any())
@@ -45,22 +39,29 @@ namespace Application.Features.Report.Queries.GetElectricityExcelReport
             string excelHeaderTitle = $"جدول استهلاك الكهرباء للسنتر لفعاليات عن شهر {currentMonthNumber} / لعام {request.Year}";
 
             int index = 1;
+
+            // تحويل القراءات إلى DTO الخاص بالتقرير
             var reportData = readings.Select(m => new ElectricityReportResponseDto
             {
                 Number = index++,
-                // ⚠️ تعديل: استخدام الـ Snapshot المخزن (DepartmentName) لضمان دقة التقرير التاريخي
+
+                // استخدام الـ Snapshot المخزن (DepartmentName) لضمان دقة التقرير التاريخي
                 DepartmentName = !string.IsNullOrEmpty(m.DepartmentName) ? m.DepartmentName : (m.Department?.Name ?? "قسم غير معروف"),
 
                 PreviousMonthLabel = $"تأشيرة نهاية شهر {previousMonthNumber}",
                 CurrentMonthLabel = $"تأشيرة نهاية شهر {currentMonthNumber}",
+
                 PreviousReading = m.PreviousReading,
                 CurrentReading = m.CurrentReading,
                 ActualConsumption = m.ActualConsumption,
 
                 ConversionFactor = m.Department?.ConversionFactor ?? 1,
-                PricePerKilo = price,
 
-                // ⚠️ إضافة التكلفة الكلية الصافية المخزنة في القراءة
+                // ⚠️ الاعتماد على السعر المخزن داخل سجل القراءة (PricePerUnit)
+                // هذا يضمن أن التقرير يعرض السعر الذي تمت المحاسبة بناءً عليه فعلياً في ذلك الوقت
+                PricePerKilo = m.PricePerUnit,
+
+                // التكلفة الكلية الصافية المخزنة في القراءة
                 TotalCost = m.TotalCost
             }).ToList();
 

@@ -273,4 +273,20 @@ public class ApiDataService : IApiDataService
 
         return body;
     }
+
+    public async Task ImportMeterReadingsAsync(Stream fileStream, Months month, int year)
+    {
+        using var content = new MultipartFormDataContent();
+
+        // تحويل الـ Stream إلى StreamContent
+        var fileContent = new StreamContent(fileStream);
+
+        // إضافة الملف إلى الـ Form
+        content.Add(fileContent, "file", "readings.xlsx");
+
+        // إرسال الطلب (تأكد من مطابقة المسار في الـ API)
+        using var response = await _httpClient.PostAsync($"api/MeterReading/Import?month={month}&year={year}", content);
+
+        await EnsureSuccessAsync(response);
+    }
 }

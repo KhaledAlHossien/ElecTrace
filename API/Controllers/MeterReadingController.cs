@@ -1,5 +1,6 @@
 ﻿using Application.Features.MeterReading.Command.Cerate;
 using Application.Features.MeterReading.Command.Delete;
+using Application.Features.MeterReading.Command.ImportReadings;
 using Application.Features.MeterReading.Queries.GetByDepId;
 using Application.Features.MeterReading.Queries.GetByMonthAndYear;
 using Application.Features.Report.Queries.GetElectricityExcelReport;
@@ -83,6 +84,18 @@ namespace API.Controllers
             string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
             return File(fileBytes, contentType, fileName);
+        }
+
+        [HttpPost("import")]
+        public async Task<IActionResult> Import(IFormFile file, [FromQuery] Months month, [FromQuery] int year)
+        {
+            if (file == null) return BadRequest("الملف مفقود");
+
+            using var stream = file.OpenReadStream();
+            var command = new ImportReadingsCommand(stream, month, year);
+
+            var result = await _mediator.Send(command);
+            return result ? Ok("تم الاستيراد بنجاح") : BadRequest("فشل الاستيراد");
         }
     }
 }

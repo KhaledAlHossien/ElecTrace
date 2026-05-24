@@ -41,6 +41,7 @@ public interface IApiDataService
     string GetInvoicesReportUrl(Months month, int year);
     Task<ReportDownloadResult> DownloadElectricityReportAsync(Months month, int year);
     Task<ReportDownloadResult> DownloadInvoicesReportAsync(Months month, int year);
+    Task ImportMeterReadingsAsync(Stream fileStream, Months month, int year);
 }
 
 public sealed record ReportDownloadResult(byte[]? Content, string FileName, string ContentType, string? ErrorMessage)

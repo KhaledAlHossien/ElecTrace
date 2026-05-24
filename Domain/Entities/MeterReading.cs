@@ -20,8 +20,9 @@ namespace Domain.Entities
 
         public decimal CurrentReading { get; set; }
 
-        public decimal ActualConsumption { get; private set; }
-        public decimal TotalCost { get; private set; }
+        public decimal ActualConsumption { get; set; }
+        public decimal TotalCost { get; set; }
+        public decimal PricePerUnit { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         /// <summary>
@@ -44,10 +45,14 @@ namespace Domain.Entities
         }
         public void CalculateTotalCost(decimal pricePerKwh, decimal departmentDiscount)
         {
+            // 1. هنا الإضافة التي تحتاجها: تخزين السعر القادم من SystemInfo في الحقل الخاص به
+            this.PricePerUnit = pricePerKwh;
+
+            // 2. الحسابات
             decimal costBeforeDiscount = ActualConsumption * pricePerKwh;
             decimal costAfterDiscount = costBeforeDiscount - departmentDiscount;
 
-            // حماية لكي لا تصبح الفاتورة بالسالب إذا كان الخصم أكبر من الاستهلاك
+            // حماية لكي لا تصبح الفاتورة بالسالب
             TotalCost = costAfterDiscount < 0 ? 0 : costAfterDiscount;
         }
     }

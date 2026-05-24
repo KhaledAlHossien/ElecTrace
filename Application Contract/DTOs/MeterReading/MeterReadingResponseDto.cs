@@ -16,6 +16,7 @@ namespace Application_Contract.DTOs.MeterReading
         decimal ActualConsumption,
         DateTime CreatedAt,
         string DepartmentName,
-        decimal TotalCost
+        decimal TotalCost,
+        decimal PricePerUnit
     );
 }
