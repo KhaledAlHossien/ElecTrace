@@ -80,6 +80,9 @@
                 <p>@readings.Count قراءة ظاهرة.</p>
             </div>
             <div class="filters">
+                <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد إكسل</label>
+                <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
+
                 <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged">
                     @foreach (var month in Enum.GetValues<Months>())
                     {
@@ -153,6 +156,29 @@
         form.Month = selectedMonth;
         departmentResults = await Api.SearchDepartmentsAsync("");
         await LoadReadings();
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        isLoading = true;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5); // 5MB
+            await Api.ImportMeterReadingsAsync(stream, selectedMonth, selectedYear);
+            ShowSuccess("تم استيراد البيانات بنجاح.");
+            await LoadReadings();
+        }
+        catch (Exception ex)
+        {
+            ShowError("فشل الاستيراد: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task SearchDepartments(ChangeEventArgs args)
@@ -264,7 +290,7 @@
         Months.February => "شباط",
         Months.March => "آذار",
         Months.April => "نيسان",
-        Months.May => "أيار",
+        Months.May => "آيار",
         Months.June => "حزيران",
         Months.July => "تموز",
         Months.August => "آب",

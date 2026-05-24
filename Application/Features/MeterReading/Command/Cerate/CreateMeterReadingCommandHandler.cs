@@ -32,15 +32,14 @@ namespace Application.Features.MeterReading.Command.Cerate
 
         public async Task<MeterReadingResponseDto> Handle(CreateMeterReadingCommand request, CancellationToken cancellationToken)
         {
-            // 1. جلب بيانات القسم للتأكد من وجوده ولأخذ معلومات العداد والاسم ومبلغ الخصم منه
             var department = await _departmentService.GetByIdAsync(request.Dto.DepartmentId);
             if (department == null)
             {
                 throw new KeyNotFoundException($"Department with ID {request.Dto.DepartmentId} not found.");
             }
 
-            // 2. جلب السعر الحالي للكيلو واط من جدول إعدادات النظام SystemInfo
-            var systemInfos = await _systemInfoService.GetAllAsync(); // أو الميثود المقابلة لديك بالجلب
+            // جلب سعر الكيلو واط من SystemInfo
+            var systemInfos = await _systemInfoService.GetAllAsync();
             var systemInfo = systemInfos.FirstOrDefault();
 
             if (systemInfo == null)
@@ -50,38 +49,25 @@ namespace Application.Features.MeterReading.Command.Cerate
 
             decimal currentPricePerKwh = systemInfo.ElectricityPricePerKwh;
 
-            // 3. تحويل الـ Dto القادم من الطلب إلى كائن الكيان (Entity)
+            // تحويل الـ Dto إلى Entity
             var meterReading = _mapper.Map<Domain.Entities.MeterReading>(request.Dto);
-
-            // تخزين اسم القسم الحالي داخل حقل الـ DepartmentName بجدول القراءات كـ Snapshot
             meterReading.DepartmentName = department.Name;
 
-            // 4. جلب القراءات السابقة لتحديد الـ PreviousReading تلقائياً
+            // جلب القراءات السابقة
             var allDepartmentReadings = await _meterReadingService.GetByDepartmentIdAsync(request.Dto.DepartmentId);
+            var lastReading = allDepartmentReadings.OrderByDescending(m => m.CreatedAt).FirstOrDefault();
 
-            var lastReading = allDepartmentReadings
-                .OrderByDescending(m => m.CreatedAt)
-                .FirstOrDefault();
+            meterReading.PreviousReading = lastReading?.CurrentReading ?? 0;
 
-            if (lastReading != null)
-            {
-                meterReading.PreviousReading = lastReading.CurrentReading;
-            }
-            else
-            {
-                meterReading.PreviousReading = 0;
-            }
-
-            // 5. استدعاء ميثود حساب الاستهلاك الذكية ومعالجة الالتفاف
+            // حساب الاستهلاك
             meterReading.CalculateConsumption(department.MaxCounter);
 
-            // ⚠️ 6. استدعاء ميثود حساب السعر الإجمالي الكلي تلقائياً (الاستهلاك الفعلي * سعر الكهرباء) - خصم القسم المالي
+            // حساب التكلفة (هذه الميثود الآن تحفظ السعر داخل meterReading.PricePerUnit)
             meterReading.CalculateTotalCost(currentPricePerKwh, department.Discount);
 
-            // 7. حفظ السجل بداخل قاعدة البيانات شاملاً الاسم الثابت والسعر الكلي المحسوب بدقة
+            // حفظ السجل
             await _meterReadingService.AddAsync(meterReading);
 
-            // 8. تحويل النتيجة المكتملة إلى الـ Response المتوجه للفرونت إند
             return _mapper.Map<MeterReadingResponseDto>(meterReading);
         }
     }

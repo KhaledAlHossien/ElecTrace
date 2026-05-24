@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,5 +16,6 @@ namespace Application_Contract.Interfaces
         Task AddAsync(MeterReading meterReading);
         Task UpdateAsync(MeterReading meterReading);
         Task DeleteAsync(MeterReading meterReading);
+        Task<bool> ImportReadingsFromExcel(Stream fileStream, Months month, int year);
     }
 }

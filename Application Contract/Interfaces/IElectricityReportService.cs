@@ -11,5 +11,7 @@ namespace Application_Contract.Interfaces
         byte[] GenerateAllInvoicesExcel(IEnumerable<ElectricityReportResponseDto> allInvoicesData, int year, int month);
 
         byte[] GenerateDepartmentsExcel(IEnumerable<MeterCodeNameDto> departments, string sheetName = "الأقسام");
+
+
     }
 }
