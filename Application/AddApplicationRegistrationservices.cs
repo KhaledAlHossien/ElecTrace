@@ -29,7 +29,7 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-
+        services.AddHttpContextAccessor();
         return services;
     }
 }

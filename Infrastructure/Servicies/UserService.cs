@@ -1,6 +1,7 @@
 ﻿using Application_Contract.DTOs.User;
 using Application_Contract.Interfaces;
 using Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Persistence.Data;
 using System;
@@ -64,6 +65,21 @@ namespace Infrastructure.Servicies
                 .AsNoTracking() 
                 .Include(u => u.Role)
                 .ToListAsync();
+        }
+
+        public async Task<string?> GetUserNameByIdAsync(string userId)
+        {
+            
+            if (int.TryParse(userId, out int id))
+            {
+                var user = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == id);
+
+                return user?.Name;
+            }
+
+            return "غير معروف";
         }
     }
 }

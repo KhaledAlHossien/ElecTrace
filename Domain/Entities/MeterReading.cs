@@ -13,7 +13,7 @@ namespace Domain.Entities
         public Department? Department { get; set; }
         public string DepartmentName { get; set; } = string.Empty;
 
-
+        public string CreatedByUserId { get; set; } = string.Empty;
         public Months Month { get; set; }
 
         public decimal PreviousReading { get; set; }
@@ -43,16 +43,15 @@ namespace Domain.Entities
                 ActualConsumption = difference;
             }
         }
-        public void CalculateTotalCost(decimal pricePerKwh, decimal departmentDiscount)
+        public void CalculateTotalCost(decimal pricePerKwh, decimal departmentDiscount, decimal multiplier)
         {
-            // 1. هنا الإضافة التي تحتاجها: تخزين السعر القادم من SystemInfo في الحقل الخاص به
             this.PricePerUnit = pricePerKwh;
 
-            // 2. الحسابات
-            decimal costBeforeDiscount = ActualConsumption * pricePerKwh;
+            decimal billableConsumption = ActualConsumption * multiplier;
+
+            decimal costBeforeDiscount = billableConsumption * pricePerKwh;
             decimal costAfterDiscount = costBeforeDiscount - departmentDiscount;
 
-            // حماية لكي لا تصبح الفاتورة بالسالب
             TotalCost = costAfterDiscount < 0 ? 0 : costAfterDiscount;
         }
     }

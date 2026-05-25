@@ -17,5 +17,6 @@ namespace Application_Contract.Interfaces
         Task DeleteAsync(User user);
         Task<List<User>> SearchByNameAsync(string name);
         Task<List<User>> GetAllAsync();
+        Task<string?> GetUserNameByIdAsync(string userId);
     }
 }
