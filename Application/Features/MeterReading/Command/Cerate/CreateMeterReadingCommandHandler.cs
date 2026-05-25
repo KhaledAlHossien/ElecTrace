@@ -2,9 +2,11 @@
 using Application_Contract.Interfaces;
 using AutoMapper;
 using MediatR;
+using Microsoft.AspNetCore.Http; 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims; 
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,20 +16,22 @@ namespace Application.Features.MeterReading.Command.Cerate
     {
         private readonly IMeterReadingService _meterReadingService;
         private readonly IDepartmentService _departmentService;
-        // ⚠️ حقن خدمة النظام لجلب سعر الكهرباء المخزن بـ SystemInfo
         private readonly ISystemInfoService _systemInfoService;
         private readonly IMapper _mapper;
+        private readonly IHttpContextAccessor _httpContextAccessor; // 👈 خدمة لجلب هوية المستخدم
 
         public CreateMeterReadingCommandHandler(
             IMeterReadingService meterReadingService,
             IDepartmentService departmentService,
-            ISystemInfoService systemInfoService, // 👈 أضفناها هنا
-            IMapper mapper)
+            ISystemInfoService systemInfoService,
+            IMapper mapper,
+            IHttpContextAccessor httpContextAccessor) // 👈 الحقن
         {
             _meterReadingService = meterReadingService;
             _departmentService = departmentService;
-            _systemInfoService = systemInfoService; // 👈 أضفناها هنا
+            _systemInfoService = systemInfoService;
             _mapper = mapper;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<MeterReadingResponseDto> Handle(CreateMeterReadingCommand request, CancellationToken cancellationToken)
@@ -38,7 +42,9 @@ namespace Application.Features.MeterReading.Command.Cerate
                 throw new KeyNotFoundException($"Department with ID {request.Dto.DepartmentId} not found.");
             }
 
-            // جلب سعر الكيلو واط من SystemInfo
+            var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                         ?? "Unknown"; 
+
             var systemInfos = await _systemInfoService.GetAllAsync();
             var systemInfo = systemInfos.FirstOrDefault();
 
@@ -49,23 +55,20 @@ namespace Application.Features.MeterReading.Command.Cerate
 
             decimal currentPricePerKwh = systemInfo.ElectricityPricePerKwh;
 
-            // تحويل الـ Dto إلى Entity
             var meterReading = _mapper.Map<Domain.Entities.MeterReading>(request.Dto);
-            meterReading.DepartmentName = department.Name;
 
-            // جلب القراءات السابقة
+            meterReading.DepartmentName = department.Name;
+            meterReading.CreatedByUserId = userId; 
+
             var allDepartmentReadings = await _meterReadingService.GetByDepartmentIdAsync(request.Dto.DepartmentId);
             var lastReading = allDepartmentReadings.OrderByDescending(m => m.CreatedAt).FirstOrDefault();
 
             meterReading.PreviousReading = lastReading?.CurrentReading ?? 0;
 
-            // حساب الاستهلاك
             meterReading.CalculateConsumption(department.MaxCounter);
 
-            // حساب التكلفة (هذه الميثود الآن تحفظ السعر داخل meterReading.PricePerUnit)
-            meterReading.CalculateTotalCost(currentPricePerKwh, department.Discount);
+            meterReading.CalculateTotalCost(currentPricePerKwh, department.Discount, department.ConversionFactor);
 
-            // حفظ السجل
             await _meterReadingService.AddAsync(meterReading);
 
             return _mapper.Map<MeterReadingResponseDto>(meterReading);

@@ -13,10 +13,12 @@ namespace Infrastructure.Servicies
     public class MeterReadingService : IMeterReadingService
     {
         private readonly DataContext _context;
+        private readonly IDepartmentService _departmentService;
 
-        public MeterReadingService(DataContext context)
+        public MeterReadingService(DataContext context, IDepartmentService departmentService)
         {
             _context = context;
+            _departmentService = departmentService;
         }
 
         public async Task<MeterReading?> GetByIdAsync(int id)
@@ -88,37 +90,40 @@ namespace Infrastructure.Servicies
                 {
                     string cellA = row.Cell("A").GetString().Trim();
 
-                    if (string.IsNullOrWhiteSpace(cellA) ||
-                        cellA.Contains("الرقم") ||
-                        cellA.Contains("Page") ||
-                        !int.TryParse(cellA, out _))
+                    if (string.IsNullOrWhiteSpace(cellA) || cellA.Contains("الرقم") || cellA.Contains("Page") || !int.TryParse(cellA, out _))
                     {
                         continue;
                     }
 
+                    // قراءة القيم من الإكسل
                     decimal.TryParse(row.Cell("C").GetString(), out decimal prevReading);
                     decimal.TryParse(row.Cell("D").GetString(), out decimal currReading);
                     decimal.TryParse(row.Cell("E").GetString(), out decimal actualCons);
 
-                    // ⚠️ التعديل هنا: قراءة السعر من عمود معين في الإكسل (مثلاً العمود G)
-                    // تأكد من تغيير حرف العمود 'G' ليتناسب مع موقع سعر الكيلو في ملف الإكسل عندك
-                    decimal.TryParse(row.Cell("G").GetString(), out decimal priceFromExcel);
+                    // قراءة السعر والقيمة النهائية من الإكسل
+                    decimal.TryParse(row.Cell("G").GetString(), out decimal pricePerUnit); // سعر الكيلو
+                    decimal.TryParse(row.Cell("H").GetString(), out decimal totalCostFromExcel); // القيمة النهائية
+
+                    var m_code = row.Cell("I").GetString().Trim();
+                    var Dep = await _departmentService.GetByMeterCodeAsync(m_code);
+                    if (Dep == null) { continue; }
 
                     var reading = new MeterReading
                     {
-                        DepartmentId = 1, // أو منطق جلب الـ ID
+                        DepartmentId = Dep.Id,
                         DepartmentName = row.Cell("B").GetString(),
                         Month = month,
                         PreviousReading = prevReading,
                         CurrentReading = currReading,
                         ActualConsumption = actualCons,
-                        CreatedAt = entryDate
+                        CreatedAt = entryDate,
+
+                        // تخزين القيم مباشرة
+                        PricePerUnit = pricePerUnit,
+                        TotalCost = totalCostFromExcel
                     };
 
-                    // نمرر السعر الذي قرأناه من الإكسل للميثود
-                    // الميثود ستقوم بتخزين هذا السعر في PricePerUnit وحساب التكلفة بناءً عليه
-                    reading.CalculateTotalCost(priceFromExcel, 0);
-
+                    // هنا لا نحتاج لاستدعاء CalculateTotalCost لأننا أدخلنا TotalCost يدوياً
                     _context.MeterReadings.Add(reading);
                 }
             }

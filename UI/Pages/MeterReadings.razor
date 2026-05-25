@@ -12,131 +12,137 @@
     </div>
 </section>
 
-<section class="content-grid two-columns">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <h2>إدخال قراءة</h2>
-                <p>ابحث باسم القسم أو رمز العداد ثم اختر النتيجة المناسبة.</p>
-            </div>
-        </div>
-
-        <EditForm Model="@form" OnValidSubmit="SaveReading">
-            <DataAnnotationsValidator />
-            <div class="form-stack">
+@* تم تعديل الهيكلية لتكون بنظام الأعمدة *@
+<div class="row">
+    <div class="col-md-3">
+        <div class="panel">
+            <div class="panel-header">
                 <div>
-                    <label class="form-label">القسم</label>
-                    <InputText class="form-control" placeholder="اكتب اسم القسم أو رمز العداد..." @bind-Value="departmentSearch" @oninput="SearchDepartments" />
-                    @if (selectedDepartment is not null)
-                    {
-                        <div class="selected-department">
-                            <span>@selectedDepartment.Name - @selectedDepartment.MeterCode</span>
-                            <button class="btn btn-link btn-sm" type="button" @onclick="ClearSelectedDepartment">تغيير</button>
-                        </div>
-                    }
-                    else if (departmentResults.Any())
-                    {
-                        <div class="department-results">
-                            @foreach (var department in departmentResults)
-                            {
-                                <button type="button" @onclick="() => SelectDepartment(department)">
-                                    <strong>@department.Name</strong>
-                                    <span>@department.MeterCode</span>
-                                </button>
-                            }
-                        </div>
-                    }
-                    else if (!string.IsNullOrWhiteSpace(departmentSearch))
-                    {
-                        <div class="field-hint">لا توجد أقسام مطابقة.</div>
-                    }
+                    <h2>إدخال قراءة</h2>
+                    <p>ابحث باسم القسم أو رمز العداد ثم اختر النتيجة المناسبة.</p>
                 </div>
+            </div>
+
+            <EditForm Model="@form" OnValidSubmit="SaveReading">
+                <DataAnnotationsValidator />
+                <div class="form-stack">
+                    <div>
+                        <label class="form-label">القسم</label>
+                        <InputText class="form-control" placeholder="اكتب اسم القسم أو رمز العداد..." @bind-Value="departmentSearch" @oninput="SearchDepartments" />
+                        @if (selectedDepartment is not null)
+                        {
+                            <div class="selected-department">
+                                <span>@selectedDepartment.Name - @selectedDepartment.MeterCode</span>
+                                <button class="btn btn-link btn-sm" type="button" @onclick="ClearSelectedDepartment">تغيير</button>
+                            </div>
+                        }
+                        else if (departmentResults.Any())
+                        {
+                            <div class="department-results">
+                                @foreach (var department in departmentResults)
+                                {
+                                    <button type="button" @onclick="() => SelectDepartment(department)">
+                                        <strong>@department.Name</strong>
+                                        <span>@department.MeterCode</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div>
+                        <label class="form-label">الشهر</label>
+                        <InputSelect class="form-select" @bind-Value="form.Month">
+                            @foreach (var month in Enum.GetValues<Months>())
+                            {
+                                <option value="@month">@MonthName(month)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div>
+                        <label class="form-label">القراءة الحالية</label>
+                        <InputNumber class="form-control" @bind-Value="form.CurrentReading" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <div class="alert @messageCss">@message</div>
+                    }
+                    <button class="btn btn-primary w-100" type="submit" disabled="@isSaving">تسجيل القراءة</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="panel wide-panel">
+            <div class="panel-header filter-header">
                 <div>
-                    <label class="form-label">الشهر</label>
-                    <InputSelect class="form-select" @bind-Value="form.Month">
+                    <h2>قراءات الشهر</h2>
+                    <p>@readings.Count قراءة ظاهرة.</p>
+                </div>
+                <div class="filters">
+                    <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد إكسل</label>
+                    <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
+                    <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged">
                         @foreach (var month in Enum.GetValues<Months>())
                         {
                             <option value="@month">@MonthName(month)</option>
                         }
-                    </InputSelect>
+                    </select>
+                    <input class="form-control year-input" type="number" value="@selectedYear" @onchange="OnYearChanged" />
                 </div>
-                <div>
-                    <label class="form-label">القراءة الحالية</label>
-                    <InputNumber class="form-control" @bind-Value="form.CurrentReading" />
-                </div>
-                @if (!string.IsNullOrWhiteSpace(message))
-                {
-                    <div class="alert @messageCss">@message</div>
-                }
-                <button class="btn btn-primary" type="submit" disabled="@isSaving">تسجيل القراءة</button>
             </div>
-        </EditForm>
-    </div>
 
-    <div class="panel wide-panel">
-        <div class="panel-header filter-header">
-            <div>
-                <h2>قراءات الشهر</h2>
-                <p>@readings.Count قراءة ظاهرة.</p>
-            </div>
-            <div class="filters">
-                <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد إكسل</label>
-                <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
-
-                <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged">
-                    @foreach (var month in Enum.GetValues<Months>())
-                    {
-                        <option value="@month">@MonthName(month)</option>
-                    }
-                </select>
-                <input class="form-control year-input" type="number" value="@selectedYear" @onchange="OnYearChanged" />
-            </div>
-        </div>
-
-        @if (isLoading)
-        {
-            <div class="loading-panel">جاري تحميل القراءات...</div>
-        }
-        else if (!readings.Any())
-        {
-            <EmptyState Text="لا توجد قراءات لهذا الشهر." />
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>القسم</th>
-                            <th>الشهر</th>
-                            <th>السابقة</th>
-                            <th>الحالية</th>
-                            <th>الاستهلاك</th>
-                            <th>السعر الإجمالي</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var reading in readings)
-                        {
+            @if (isLoading)
+            {
+                <div class="loading-panel">جاري تحميل القراءات...</div>
+            }
+            else if (!readings.Any())
+            {
+                <EmptyState Text="لا توجد قراءات لهذا الشهر." />
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
                             <tr>
-                                <td><strong>@reading.DepartmentName</strong></td>
-                                <td>@MonthName(reading.Month)</td>
-                                <td>@reading.PreviousReading.ToString("N0")</td>
-                                <td>@reading.CurrentReading.ToString("N0")</td>
-                                <td><span class="status-pill">@reading.ActualConsumption.ToString("N0") ك.و.س</span></td>
-                                <td><strong>@reading.TotalCost.ToString("N0") ل.س</strong></td>
-                                <td class="table-actions">
-                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteReading(reading.Id)">حذف</button>
-                                </td>
+                                <th>القسم</th>
+                                <th>الشهر</th>
+                                <th>السابقة</th>
+                                <th>الحالية</th>
+                                <th>الاستهلاك</th>
+                                <th>السعر الإجمالي</th>
+                                <th>تم الإدخال بواسطة</th>
+                                <th></th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
+                        </thead>
+                        <tbody>
+                            @foreach (var reading in readings)
+                            {
+                                <tr>
+                                    <td><strong>@reading.DepartmentName</strong></td>
+                                    <td>@MonthName(reading.Month)</td>
+                                    <td>@reading.PreviousReading.ToString("N0")</td>
+                                    <td>@reading.CurrentReading.ToString("N0")</td>
+                                    <td><span class="status-pill">@reading.ActualConsumption.ToString("N0") ك.و.س</span></td>
+                                    <td><strong>@reading.TotalCost.ToString("N0") ل.س</strong></td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            @(string.IsNullOrEmpty(reading.CreatedByUserName) ? "غير معروف" : reading.CreatedByUserName)
+                                        </span>
+                                    </td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteReading(reading.Id)">حذف</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
     </div>
-</section>
+</div>
 
 @code {
     private List<DepartmentResponseDto> departmentResults = [];
@@ -162,11 +168,10 @@
     {
         var file = e.File;
         if (file == null) return;
-
         isLoading = true;
         try
         {
-            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5); // 5MB
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
             await Api.ImportMeterReadingsAsync(stream, selectedMonth, selectedYear);
             ShowSuccess("تم استيراد البيانات بنجاح.");
             await LoadReadings();
@@ -175,10 +180,7 @@
         {
             ShowError("فشل الاستيراد: " + ex.Message);
         }
-        finally
-        {
-            isLoading = false;
-        }
+        finally { isLoading = false; }
     }
 
     private async Task SearchDepartments(ChangeEventArgs args)
@@ -227,7 +229,7 @@
     private async Task LoadReadings()
     {
         isLoading = true;
-        readings = await Api.GetMeterReadingsAsync(selectedMonth, selectedYear);
+        readings = (await Api.GetMeterReadingsAsync(selectedMonth, selectedYear)).ToList();
         isLoading = false;
     }
 
@@ -238,7 +240,6 @@
             ShowError("اختر القسم قبل تسجيل القراءة.");
             return;
         }
-
         isSaving = true;
         try
         {
@@ -248,14 +249,8 @@
             form.CurrentReading = 0;
             await LoadReadings();
         }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-        finally
-        {
-            isSaving = false;
-        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { isSaving = false; }
     }
 
     private async Task DeleteReading(int id)
@@ -266,23 +261,11 @@
             ShowSuccess("تم حذف القراءة.");
             await LoadReadings();
         }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
+        catch (Exception ex) { ShowError(ex.Message); }
     }
 
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "alert-success";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "alert-danger";
-    }
+    private void ShowSuccess(string text) { message = text; messageCss = "alert-success"; }
+    private void ShowError(string text) { message = text; messageCss = "alert-danger"; }
 
     private static string MonthName(Months month) => month switch
     {
