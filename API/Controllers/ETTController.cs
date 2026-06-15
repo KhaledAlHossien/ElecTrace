@@ -72,5 +72,22 @@ namespace API.Controllers
         return BadRequest(ex.Message);
       }
     }
+
+    [HttpGet("ExportExcel")]
+    public IActionResult ExportExcel(
+    string pattern,
+    DateTime startDate,
+    DateTime endDate)
+    {
+      var file = _ettService.GenerateReportExcel(
+          pattern,
+          startDate,
+          endDate);
+
+      return File(
+          file,
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          $"SalesReport_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+    }
   }
 }
