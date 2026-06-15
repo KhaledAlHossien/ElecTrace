@@ -157,7 +157,7 @@ namespace Infrastructure.Servicies.ETT
       int row = 5;
 
       string currentCustomer = "";
-
+      decimal billTotal = 0;
       decimal customerTotal = 0;
       decimal grandTotal = 0;
 
@@ -184,14 +184,27 @@ namespace Infrastructure.Servicies.ETT
 
         if (currentCustomer != customer)
         {
-          // حفظ آخر فاتورة للعميل السابق
           if (!string.IsNullOrEmpty(currentBill))
           {
-            billRanges.Add(
-                (billStartRow, row - 1));
-          }
+            billRanges.Add((billStartRow, row - 1));
 
-          currentBill = "";
+            ws.Cell(row, 1).Value =
+                $"إجمالي الفاتورة : {billTotal:N2}";
+
+            ws.Range(row, 1, row, 8).Merge();
+
+            ws.Range(row, 1, row, 8)
+                .Style.Fill.BackgroundColor =
+                XLColor.FromHtml("#fdebd0");
+
+            ws.Range(row, 1, row, 8)
+                .Style.Font.Bold = true;
+
+            row++;
+
+            currentBill = "";
+            billTotal = 0;
+          }
 
           if (!string.IsNullOrEmpty(currentCustomer))
           {
@@ -276,10 +289,25 @@ namespace Infrastructure.Servicies.ETT
           {
             billRanges.Add(
                 (billStartRow, row - 1));
+
+            ws.Cell(row, 1).Value =
+                $"إجمالي الفاتورة : {billTotal:N2}";
+
+            ws.Range(row, 1, row, 8).Merge();
+
+            ws.Range(row, 1, row, 8)
+                .Style.Fill.BackgroundColor =
+                XLColor.FromHtml("#FFF3CD");
+
+            ws.Range(row, 1, row, 8)
+                .Style.Font.Bold = true;
+
+            row++;
           }
 
           currentBill = billNumber;
           billStartRow = row;
+          billTotal = 0;
         }
 
         // =========================
@@ -342,10 +370,10 @@ namespace Infrastructure.Servicies.ETT
 
         customerTotal += lineTotal;
         grandTotal += lineTotal;
+        billTotal += lineTotal;
 
         row++;
       }
-
       // =========================
       // Last Bill
       // =========================
@@ -354,7 +382,22 @@ namespace Infrastructure.Servicies.ETT
       {
         billRanges.Add(
             (billStartRow, row - 1));
+
+        ws.Cell(row, 1).Value =
+            $"إجمالي الفاتورة : {billTotal:N2}";
+
+        ws.Range(row, 1, row, 8).Merge();
+
+        ws.Range(row, 1, row, 8)
+            .Style.Fill.BackgroundColor =
+            XLColor.FromHtml("#fdebd0");
+
+        ws.Range(row, 1, row, 8)
+            .Style.Font.Bold = true;
+
+        row++;
       }
+
 
       // =========================
       // Last Customer Total
