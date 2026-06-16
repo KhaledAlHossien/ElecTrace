@@ -4,7 +4,7 @@ using System.Data;
 
 namespace API.Controllers
 {
-  [Route("api/[controller]")]
+  [Route("api/ETT")]
   [ApiController]
   public class ETTController : ControllerBase
   {
