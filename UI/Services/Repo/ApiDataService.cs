@@ -1,12 +1,13 @@
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Application_Contract.DTOs.Department;
 using Application_Contract.DTOs.MeterReading;
+using Application_Contract.DTOs.Pattern;
 using Application_Contract.DTOs.Role;
 using Application_Contract.DTOs.SystemInfo;
 using Application_Contract.DTOs.User;
 using Domain.Enums;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using UI.Services.Interface;
 
 namespace UI.Services.Repo;
@@ -288,5 +289,23 @@ public class ApiDataService : IApiDataService
         using var response = await _httpClient.PostAsync($"api/MeterReading/Import?month={month}&year={year}", content);
 
         await EnsureSuccessAsync(response);
+    }
+
+    public async Task<List<PatternDto>> GetEttPatternsAsync()
+    {
+        return await GetListAsync<PatternDto>("api/ETT/patterns");
+    }
+
+    public async Task<List<Dictionary<string, object>>> GetEttReportAsync(string pattern, DateTime fromDate, DateTime toDate)
+    {
+        var url = $"api/ETT/report?pattern={Uri.EscapeDataString(pattern)}&fromDate={fromDate:yyyy-MM-dd}&toDate={toDate:yyyy-MM-dd}";
+        return await GetListAsync<Dictionary<string, object>>(url);
+    }
+
+    public async Task<ReportDownloadResult> DownloadEttReportExcelAsync(string pattern, DateTime startDate, DateTime endDate)
+    {
+        var url = $"api/ETT/ExportExcel?pattern={Uri.EscapeDataString(pattern)}&startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}";
+        var fileName = $"SalesReport_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+        return await DownloadReportAsync(url, fileName);
     }
 }

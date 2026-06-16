@@ -1,5 +1,6 @@
 using Application_Contract.DTOs.Department;
 using Application_Contract.DTOs.MeterReading;
+using Application_Contract.DTOs.Pattern;
 using Application_Contract.DTOs.Role;
 using Application_Contract.DTOs.SystemInfo;
 using Application_Contract.DTOs.User;
@@ -42,6 +43,9 @@ public interface IApiDataService
     Task<ReportDownloadResult> DownloadElectricityReportAsync(Months month, int year);
     Task<ReportDownloadResult> DownloadInvoicesReportAsync(Months month, int year);
     Task ImportMeterReadingsAsync(Stream fileStream, Months month, int year);
+    Task<List<PatternDto>> GetEttPatternsAsync();
+    Task<List<Dictionary<string, object>>> GetEttReportAsync(string pattern, DateTime fromDate, DateTime toDate);
+    Task<ReportDownloadResult> DownloadEttReportExcelAsync(string pattern, DateTime startDate, DateTime endDate);
 }
 
 public sealed record ReportDownloadResult(byte[]? Content, string FileName, string ContentType, string? ErrorMessage)

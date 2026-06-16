@@ -1,5 +1,6 @@
 @page "/reports"
 @attribute [Authorize]
+@using Application_Contract.DTOs.Pattern
 @inject IApiDataService Api
 @inject IJSRuntime Js
 
@@ -8,15 +9,20 @@
 <section class="page-header">
     <div>
         <p class="eyebrow">Excel</p>
-        <h1>تقارير الكهرباء</h1>
-        <p>تنزيل تقرير الاستهلاك الشهري أو فواتير كل الأقسام كملف Excel.</p>
+        <h1>تقارير النظام</h1>
+        <p>تنزيل تقارير الاستهلاك الشهري للكهرباء وتقارير الحركة اليومية.</p>
     </div>
 </section>
 
-<section class="panel reports-panel">
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="alert @messageCss mb-3">@message</div>
+}
+
+<section class="panel reports-panel mb-4">
     <div class="panel-header filter-header">
         <div>
-            <h2>اختر الفترة</h2>
+            <h2>تقارير الكهرباء</h2>
             <p>إذا لم تكن هناك قراءات، ستظهر رسالة واضحة بدون فتح صفحة خطأ.</p>
         </div>
         <div class="filters">
@@ -29,11 +35,6 @@
             <input class="form-control year-input" type="number" @bind="selectedYear" />
         </div>
     </div>
-
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <div class="alert @messageCss">@message</div>
-    }
 
     <div class="report-actions">
         <button class="report-card report-button" type="button" @onclick="DownloadElectricityReport" disabled="@isDownloading">
@@ -49,12 +50,67 @@
     </div>
 </section>
 
+<section class="panel reports-panel">
+    <div class="panel-header filter-header">
+        <div>
+            <h2>تقرير الحركة اليومية (المبيعات)</h2>
+            <p>حدد النمط والفترة الزمنية لتصدير الحركة اليومية إلى إكسل.</p>
+        </div>
+        <div class="filters">
+            <select class="form-select" @bind="selectedPattern">
+                <option value="">-- اختر النمط --</option>
+                @foreach (var pattern in patterns)
+                {
+                    <option value="@pattern.Id.ToString()">@pattern.Name</option>
+                }
+            </select>
+
+            <input class="form-control" type="date" @bind="startDate" title="من تاريخ" />
+            <input class="form-control" type="date" @bind="endDate" title="إلى تاريخ" />
+        </div>
+    </div>
+
+    <div class="report-actions">
+        <button class="report-card report-button" type="button" @onclick="DownloadEttReport" disabled="@isDownloading">
+            <span>تقرير مفصل</span>
+            <strong>Daily Movement</strong>
+            <small>ملف إكسل مفصل يضم الفواتير والزبائن والمجاميع.</small>
+        </button>
+    </div>
+</section>
+
 @code {
+    // === متغيرات تقارير الكهرباء ===
     private Months selectedMonth = (Months)DateTime.Today.Month;
     private int selectedYear = DateTime.Today.Year;
+
+    // === متغيرات تقارير ETT ===
+    private List<PatternDto> patterns = new();
+    private string selectedPattern = "";
+    private DateTime startDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime endDate = DateTime.Today;
+
+    // === متغيرات عامة ===
     private bool isDownloading;
     private string message = "";
     private string messageCss = "alert-info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            patterns = await Api.GetEttPatternsAsync();
+            if (patterns.Any())
+            {
+                selectedPattern = patterns.First().Id.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            string friendlyError = GetFriendlyErrorMessage(ex.Message);
+            ShowError("فشل تحميل الأنماط: " + friendlyError);
+        }
+    }
 
     private async Task DownloadElectricityReport()
     {
@@ -64,6 +120,23 @@
     private async Task DownloadInvoicesReport()
     {
         await DownloadReport(() => Api.DownloadInvoicesReportAsync(selectedMonth, selectedYear));
+    }
+
+    private async Task DownloadEttReport()
+    {
+        if (string.IsNullOrWhiteSpace(selectedPattern))
+        {
+            ShowInfo("الرجاء اختيار النمط أولاً قبل تنزيل التقرير.");
+            return;
+        }
+
+        if (startDate > endDate)
+        {
+            ShowError("تاريخ البداية لا يمكن أن يكون أكبر من تاريخ النهاية.");
+            return;
+        }
+
+        await DownloadReport(() => Api.DownloadEttReportExcelAsync(selectedPattern, startDate, endDate));
     }
 
     private async Task DownloadReport(Func<Task<ReportDownloadResult>> request)
@@ -76,22 +149,40 @@
             var result = await request();
             if (!result.IsSuccess)
             {
-                ShowInfo(result.ErrorMessage ?? "لا يوجد تقرير لهذا الشهر.");
+                ShowInfo(result.ErrorMessage ?? "لا يوجد تقرير لهذه البيانات المطابقة.");
                 return;
             }
 
             var base64 = Convert.ToBase64String(result.Content!);
             await Js.InvokeVoidAsync("downloadFileFromBytes", result.FileName, result.ContentType, base64);
-            ShowSuccess("تم تجهيز التقرير وتنزيله.");
+            ShowSuccess("تم تجهيز التقرير وتنزيله بنجاح.");
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            ShowError(GetFriendlyErrorMessage(ex.Message));
         }
         finally
         {
             isDownloading = false;
         }
+    }
+
+    // دالة فلترة أخطاء قاعدة البيانات
+    private string GetFriendlyErrorMessage(string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage))
+            return "حدث خطأ غير معروف.";
+
+        if (errorMessage.Contains("network-related", StringComparison.OrdinalIgnoreCase) ||
+                    errorMessage.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
+                    errorMessage.Contains("Error Locating Server", StringComparison.OrdinalIgnoreCase) ||
+                    errorMessage.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+                    errorMessage.Contains("ERR_CONNECTION", StringComparison.OrdinalIgnoreCase))
+        {
+            return "يوجد خطأ بالاتصال (لا يمكن الوصول للخادم أو قاعدة البيانات).";
+        }
+
+        return errorMessage;
     }
 
     private void ShowSuccess(string text)
