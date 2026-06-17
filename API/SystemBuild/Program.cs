@@ -12,11 +12,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazor", policy =>
     {
-        // policy.AllowAnyOrigin() // رابط الـ UI الخاص بك
-        policy.WithOrigins(builder.Configuration["UIBaseUrl"])
-         .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.AllowAnyOrigin() // رابط الـ UI الخاص بك
+                                //  policy.WithOrigins(builder.Configuration["UIBaseUrl"])
+        .AllowAnyHeader()
+             .AllowAnyMethod();
+            //  .AllowCredentials();
     });
 });
 

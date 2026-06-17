@@ -102,7 +102,17 @@
             patterns = await Api.GetEttPatternsAsync();
             if (patterns.Any())
             {
-                selectedPattern = patterns.First().Id.ToString();
+                // البحث الذكي عن النمط الذي يحتوي على كلمة "مبيعات"
+                var salesPattern = patterns.FirstOrDefault(p => p.Name != null && p.Name.Contains("مبيعات", StringComparison.OrdinalIgnoreCase));
+
+                if (salesPattern != null)
+                {
+                    selectedPattern = salesPattern.Id.ToString();
+                }
+                else
+                {
+                    selectedPattern = patterns.First().Id.ToString(); // الاحتياط في حال عدم وجود الكلمة
+                }
             }
         }
         catch (Exception ex)
@@ -167,17 +177,16 @@
         }
     }
 
-    // دالة فلترة أخطاء قاعدة البيانات
     private string GetFriendlyErrorMessage(string errorMessage)
     {
         if (string.IsNullOrWhiteSpace(errorMessage))
             return "حدث خطأ غير معروف.";
 
         if (errorMessage.Contains("network-related", StringComparison.OrdinalIgnoreCase) ||
-                    errorMessage.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
-                    errorMessage.Contains("Error Locating Server", StringComparison.OrdinalIgnoreCase) ||
-                    errorMessage.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
-                    errorMessage.Contains("ERR_CONNECTION", StringComparison.OrdinalIgnoreCase))
+            errorMessage.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
+            errorMessage.Contains("Error Locating Server", StringComparison.OrdinalIgnoreCase) ||
+            errorMessage.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+            errorMessage.Contains("ERR_CONNECTION", StringComparison.OrdinalIgnoreCase))
         {
             return "يوجد خطأ بالاتصال (لا يمكن الوصول للخادم أو قاعدة البيانات).";
         }
