@@ -1,9 +1,10 @@
 ﻿using Application_Contract.DTOs.Pattern;
+using ClosedXML.Excel;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using System.Data;
+using System.Globalization;
 using System.Text.Json;
-using ClosedXML.Excel;
 
 namespace Infrastructure.Servicies.ETT
 {
@@ -122,23 +123,25 @@ namespace Infrastructure.Servicies.ETT
             ws.RightToLeft = true;
             ws.ShowGridLines = false;
 
+            // جعل الخط الافتراضي لكامل التقرير 16
+            ws.Style.Font.FontSize = 16;
+
             int row = 1;
 
             string currentCustomer = "";
             string currentBill = "";
-            decimal billTotal = 0;
-            decimal customerTotal = 0;
+            double billTotal = 0;
+            double customerTotal = 0;
             int billStartRow = 0;
             int customerStartRow = 1;
 
-            // حفظ نطاقات الفواتير للدمج لاحقاً
             var billRanges = new List<(int StartRow, int EndRow)>();
 
             foreach (DataRow dr in dt.Rows)
             {
                 string customer = dr["Cust_Name"]?.ToString() ?? "";
                 string billNumber = dr["BillNumber"]?.ToString() ?? "";
-                decimal lineTotal = Convert.ToDecimal(dr["Total"] ?? 0);
+                double lineTotal = Convert.ToDouble(dr["Total"] ?? 0);
 
                 // =========================
                 // تغيير الزبون
@@ -152,30 +155,34 @@ namespace Infrastructure.Servicies.ETT
                         {
                             billRanges.Add((billStartRow, row - 1));
 
-                            ws.Range(row, 1, row, 6).Merge().Value = "المجموع الإجمالي";
-                            ws.Range(row, 1, row, 6).Style.Font.Bold = true;
+                            ws.Range(row, 1, row, 6).Merge().Value = "";
 
                             ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                             ws.Range(row, 7, row, 9).Style.Font.Bold = true;
                             ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
+                            ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                             row++;
                         }
 
                         // 2. طباعة المجموع الإجمالي للزبون
-                        ws.Row(row).Height = 30;
+                        ws.Row(row).Height = 35;
 
                         ws.Range(row, 1, row, 6).Merge().Value = $"المجموع الإجمالي للزبون: {currentCustomer}";
                         ws.Range(row, 1, row, 6).Style.Font.Bold = true;
-                        ws.Range(row, 1, row, 6).Style.Font.FontSize = 14;
+                        ws.Range(row, 1, row, 6).Style.Font.FontSize = 18;
                         ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
 
-                        ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(customerTotal);
+                        // التقريب لأقرب 10
+                        double roundedTotal = Math.Round(customerTotal / 10.0, MidpointRounding.AwayFromZero) * 10;
+
+                        ws.Range(row, 7, row, 9).Merge().Value = roundedTotal;
                         ws.Range(row, 7, row, 9).Style.Font.Bold = true;
-                        ws.Range(row, 7, row, 9).Style.Font.FontSize = 14;
+                        ws.Range(row, 7, row, 9).Style.Font.FontSize = 18;
                         ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
+                        ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                         row++;
 
-                        // 3. رسم الحدود للعميل الحالي (9 أعمدة فقط)
+                        // 3. رسم الحدود للعميل الحالي
                         var custRange = ws.Range(customerStartRow, 1, row - 1, 9);
                         custRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                         custRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
@@ -195,31 +202,25 @@ namespace Infrastructure.Servicies.ETT
                     // =========================
                     // ترويسة الزبون مع صندوق التوقيع
                     // =========================
-
-                    // دمج 3 أسطر و3 أعمدة لصندوق التوقيع (فوق أعمدة الكمية والإفرادي والإجمالي)
                     var sigRange = ws.Range(row, 7, row + 2, 9);
                     sigRange.Merge().Value = "التوقيع";
-                    sigRange.Style.Font.FontColor = XLColor.Gray; // لون فاتح
-                    sigRange.Style.Font.FontSize = 16;
-                    sigRange.Style.Fill.BackgroundColor = XLColor.White; // خلفية بيضاء صافية للختم
+                    sigRange.Style.Font.FontColor = XLColor.Gray;
+                    sigRange.Style.Fill.BackgroundColor = XLColor.White;
                     sigRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                     sigRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
-                    // السطر الأول: اسم الزبون
                     ws.Cell(row, 1).Value = customer;
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
                     ws.Range(row, 1, row, 6).Style.Font.FontColor = XLColor.DarkRed;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
-                    // السطر الثاني: الحركة اليومية
                     ws.Cell(row, 1).Value = "الحركة اليومية - تفصيلي";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
-                    // السطر الثالث: التاريخ
-                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate:yyyy-M-d} ولغاية {toDate:yyyy-M-d}";
+                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate:dd-MM-yyyy} ولغاية {toDate:dd-MM-yyyy}";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
@@ -236,18 +237,16 @@ namespace Infrastructure.Servicies.ETT
                 }
                 else if (currentBill != billNumber)
                 {
-                    // إغلاق فاتورة داخل نفس الزبون
                     if (!string.IsNullOrEmpty(currentBill))
                     {
                         billRanges.Add((billStartRow, row - 1));
 
-                        ws.Range(row, 1, row, 6).Merge().Value = "المجموع الإجمالي";
-                        ws.Range(row, 1, row, 6).Style.Font.Bold = true;
+                        ws.Range(row, 1, row, 6).Merge().Value = "";
 
                         ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                         ws.Range(row, 7, row, 9).Style.Font.Bold = true;
                         ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
-
+                        ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                         row++;
                     }
                 }
@@ -268,9 +267,12 @@ namespace Infrastructure.Servicies.ETT
                 ws.Cell(row, 4).Value = dr["Bill_Note"]?.ToString() ?? "";
                 ws.Cell(row, 5).Value = dr["Item_Notes"]?.ToString() ?? "";
                 ws.Cell(row, 6).Value = dr["Item_Name"]?.ToString() ?? "";
+
                 ws.Cell(row, 7).Value = Convert.ToDouble(dr["Qty"] ?? 0);
                 ws.Cell(row, 8).Value = Convert.ToDouble(dr["Price"] ?? 0);
                 ws.Cell(row, 9).Value = Convert.ToDouble(lineTotal);
+
+                ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
 
                 billTotal += lineTotal;
                 customerTotal += lineTotal;
@@ -278,7 +280,7 @@ namespace Infrastructure.Servicies.ETT
             }
 
             // =========================
-            // إغلاق آخر فاتورة وآخر زبون في التقرير
+            // إغلاق آخر فاتورة وآخر زبون
             // =========================
             if (!string.IsNullOrEmpty(currentCustomer))
             {
@@ -286,26 +288,30 @@ namespace Infrastructure.Servicies.ETT
                 {
                     billRanges.Add((billStartRow, row - 1));
 
-                    ws.Range(row, 1, row, 6).Merge().Value = "المجموع الإجمالي";
-                    ws.Range(row, 1, row, 6).Style.Font.Bold = true;
+                    ws.Range(row, 1, row, 6).Merge().Value = "";
 
                     ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                     ws.Range(row, 7, row, 9).Style.Font.Bold = true;
                     ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
+                    ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                     row++;
                 }
 
-                ws.Row(row).Height = 30;
+                ws.Row(row).Height = 35;
 
                 ws.Range(row, 1, row, 6).Merge().Value = $"المجموع الإجمالي للزبون: {currentCustomer}";
                 ws.Range(row, 1, row, 6).Style.Font.Bold = true;
-                ws.Range(row, 1, row, 6).Style.Font.FontSize = 14;
+                ws.Range(row, 1, row, 6).Style.Font.FontSize = 18;
                 ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
 
-                ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(customerTotal);
+                // التقريب لأقرب 10
+                double roundedTotal = Math.Round(customerTotal / 10.0, MidpointRounding.AwayFromZero) * 10;
+
+                ws.Range(row, 7, row, 9).Merge().Value = roundedTotal;
                 ws.Range(row, 7, row, 9).Style.Font.Bold = true;
-                ws.Range(row, 7, row, 9).Style.Font.FontSize = 14;
+                ws.Range(row, 7, row, 9).Style.Font.FontSize = 18;
                 ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
+                ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                 row++;
 
                 var custRange = ws.Range(customerStartRow, 1, row - 1, 9);
@@ -322,10 +328,10 @@ namespace Infrastructure.Servicies.ETT
             {
                 if (bill.StartRow < bill.EndRow)
                 {
-                    ws.Range(bill.StartRow, 1, bill.EndRow, 1).Merge(); // الفاتورة
-                    ws.Range(bill.StartRow, 2, bill.EndRow, 2).Merge(); // التاريخ
-                    ws.Range(bill.StartRow, 3, bill.EndRow, 3).Merge(); // الزبون
-                    ws.Range(bill.StartRow, 4, bill.EndRow, 4).Merge(); // البيان
+                    ws.Range(bill.StartRow, 1, bill.EndRow, 1).Merge();
+                    ws.Range(bill.StartRow, 2, bill.EndRow, 2).Merge();
+                    ws.Range(bill.StartRow, 3, bill.EndRow, 3).Merge();
+                    ws.Range(bill.StartRow, 4, bill.EndRow, 4).Merge();
                 }
             }
 
@@ -334,10 +340,10 @@ namespace Infrastructure.Servicies.ETT
             // =========================
             ws.Columns().AdjustToContents();
 
-            ws.Column(6).Width = 35; // اسم المادة
-            ws.Column(4).Width = 30; // البيان
-            ws.Column(3).Width = 25; // اسم الزبون
-            ws.Column(9).Width = 15; // السعر الإجمالي
+            ws.Column(6).Width = 35;
+            ws.Column(4).Width = 30;
+            ws.Column(3).Width = 25;
+            ws.Column(9).Width = 15;
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
