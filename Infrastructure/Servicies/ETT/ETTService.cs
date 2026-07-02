@@ -220,7 +220,7 @@ namespace Infrastructure.Servicies.ETT
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
-                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate:dd-MM-yyyy} ولغاية {toDate:dd-MM-yyyy}";
+                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate.ToString("dd-MM-yyyy")} ولغاية {toDate.ToString("dd-MM-yyyy")}";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
