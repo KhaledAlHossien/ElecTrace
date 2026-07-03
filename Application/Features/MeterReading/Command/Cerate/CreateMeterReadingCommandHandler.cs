@@ -65,7 +65,7 @@ namespace Application.Features.MeterReading.Command.Cerate
 
             meterReading.PreviousReading = lastReading?.CurrentReading ?? 0;
 
-            meterReading.CalculateConsumption(department.MaxCounter);
+            meterReading.CalculateConsumption();
 
             meterReading.CalculateTotalCost(currentPricePerKwh, department.Discount, department.ConversionFactor);
 
