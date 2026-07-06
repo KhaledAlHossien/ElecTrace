@@ -308,4 +308,17 @@ public class ApiDataService : IApiDataService
         var fileName = $"SalesReport_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
         return await DownloadReportAsync(url, fileName);
     }
+
+    public async Task ImportDepartmentsAsync(Stream fileStream)
+    {
+        using var content = new MultipartFormDataContent();
+
+        var fileContent = new StreamContent(fileStream);
+
+        content.Add(fileContent, "file", "departments.xlsx");
+
+        using var response = await _httpClient.PostAsync($"api/Department/Import", content);
+
+        await EnsureSuccessAsync(response);
+    }
 }

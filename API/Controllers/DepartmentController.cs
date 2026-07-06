@@ -1,5 +1,6 @@
 ﻿using Application.Features.Department.Command.Create;
 using Application.Features.Department.Command.Delete;
+using Application.Features.Department.Command.Import;
 using Application.Features.Department.Command.Update;
 using Application.Features.Department.Queries.GetAll;
 using Application.Features.Department.Queries.GetAllMeterCode;
@@ -9,6 +10,7 @@ using Application.Features.Department.Queries.Search;
 
 using Application_Contract.DTOs.Department;
 using Application_Contract.DTOs.User;
+using Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -90,6 +92,18 @@ namespace API.Controllers
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 $"MeterCodes_{DateTime.Now:yyyyMMdd}.xlsx"
             );
+        }
+
+        [HttpPost("import")]
+        public async Task<IActionResult> Import(IFormFile file)
+        {
+            if (file == null) return BadRequest("الملف مفقود");
+
+            using var stream = file.OpenReadStream();
+            var command = new ImportDepartmentsCommand(stream);
+
+            var result = await _mediator.Send(command);
+            return result ? Ok("تم الاستيراد بنجاح") : BadRequest("فشل الاستيراد");
         }
 
     }

@@ -17,8 +17,7 @@ public interface IApiDataService
     Task DeleteDepartmentAsync(int id);
 
     Task<(byte[] Content, string FileName)> ExportMeterCodesToExcelAsync();
-
-
+    Task ImportDepartmentsAsync(Stream fileStream);
 
     Task<List<MeterReadingResponseDto>> GetMeterReadingsAsync(Months month, int year);
     Task<List<MeterReadingResponseDto>> GetMeterReadingsByDepartmentAsync(int departmentId);

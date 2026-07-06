@@ -1,7 +1,9 @@
 ﻿using Application_Contract.Interfaces;
+using ClosedXML.Excel;
 using Domain.Entities;
-using Persistence.Data;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Persistence.Data;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -96,6 +98,54 @@ namespace Infrastructure.Servicies
             var numberPart = int.Parse(lastCode.Substring(3));
 
             return $"ETT{(numberPart + 1):D3}";
+        }
+
+
+        public async Task<bool> ImportFromExcel(Stream fileStream)
+        {
+            using var workbook = new XLWorkbook(fileStream);
+
+            // الحصول على آخر رقم مستخدم في MeterCode
+            int nextMeterCode = 1;
+
+            var lastCode = await _context.Departments
+                .OrderByDescending(d => d.Id)
+                .Select(d => d.MeterCode)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(lastCode) &&
+                lastCode.StartsWith("ETT") &&
+                int.TryParse(lastCode.Substring(3), out int lastNumber))
+            {
+                nextMeterCode = lastNumber + 1;
+            }
+
+            foreach (var worksheet in workbook.Worksheets)
+            {
+                var rows = worksheet.RangeUsed()?.RowsUsed();
+                if (rows == null)
+                    continue;
+
+                foreach (var row in rows)
+                {
+                    decimal.TryParse(row.Cell("B").GetString(), out decimal factor);
+
+                    var department = new Department
+                    {
+                        Name = row.Cell("A").GetString(),
+                        ConversionFactor = factor,
+                        MeterCode = $"ETT{nextMeterCode:D3}",
+                        MaxCounter = 0,
+                        Discount = 0
+                    };
+
+                    nextMeterCode++;
+
+                    _context.Departments.Add(department);
+                }
+            }
+
+            return await _context.SaveChangesAsync() > 0;
         }
     }
 }

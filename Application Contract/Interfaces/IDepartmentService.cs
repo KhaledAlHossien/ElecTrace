@@ -15,5 +15,7 @@ namespace Application_Contract.Interfaces
         Task<IEnumerable<Department>> GetByNameAsync(string name);
         Task<IEnumerable<Department>> GetAllAsync();
         Task<string> GenerateMeterCodeAsync();
+        Task<bool> ImportFromExcel(Stream fileStream);
+
     }
 }
