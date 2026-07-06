@@ -35,14 +35,17 @@ namespace Domain.Entities
 
       if (difference < 0)
       {
-        int MaxReading = (int)Math.Pow(10, PreviousReading.ToString().Length);
-        ActualConsumption = difference + MaxReading;
+        int length = (int)Math.Floor(Math.Log10((int)PreviousReading)) + 1;
+        int maxReading = (int)Math.Pow(10, length);
+
+        ActualConsumption = maxReading + difference;
       }
       else
       {
         ActualConsumption = difference;
       }
     }
+
     public void CalculateTotalCost(decimal pricePerKwh, decimal departmentDiscount, decimal multiplier)
     {
       this.PricePerUnit = pricePerKwh;
