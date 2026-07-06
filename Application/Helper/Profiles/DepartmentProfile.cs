@@ -23,8 +23,7 @@ namespace Application.Helper.Profiles
       // تأكد أن الاسم يطابق حقل الـ Entity (إذا كان DiscountAmount غيره لـ DiscountAmount)
 
       // إذا كان عندك حقول نصية متل Name أو MeterCode بدك تحميها من الـ Null، اذكرها صراحة كالتالي:
-      .ForMember(dest => dest.Name, opt => opt.Condition(src => src.Name != null))
-      .ForMember(dest => dest.MeterCode, opt => opt.Condition(src => src.MeterCode != null));
+      .ForMember(dest => dest.Name, opt => opt.Condition(src => src.Name != null));
             CreateMap<Department, MeterCodeNameDto>();
         }
     }

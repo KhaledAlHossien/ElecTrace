@@ -29,10 +29,6 @@
                     <label class="form-label">اسم القسم</label>
                     <InputText class="form-control" @bind-Value="form.Name" />
                 </div>
-                <div>
-                    <label class="form-label">رمز العداد</label>
-                    <InputText class="form-control" @bind-Value="form.MeterCode" />
-                </div>
                 <div class="form-row">
                     <div>
                         <label class="form-label">معامل التحويل</label>
@@ -88,7 +84,6 @@
                             <th>القسم</th>
                             <th>رمز العداد</th>
                             <th>معامل التحويل</th>
-                            <th>أقصى عداد</th>
                             <th>الخصم</th>
                             <th></th>
                         </tr>
@@ -100,7 +95,6 @@
                                 <td><strong>@department.Name</strong></td>
                                 <td>@department.MeterCode</td>
                                 <td>@department.ConversionFactor</td>
-                                <td>@department.MaxCounter.ToString("N0")</td>
                                 <td>@department.Discount.ToString("N0") ل.س</td>
                                 <td class="table-actions">
                                     <button class="btn btn-outline-primary btn-sm" @onclick="() => EditDepartment(department)">تعديل</button>
@@ -160,7 +154,7 @@
             else
             {
                 // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode,0, form.DiscountAmount));
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor,0, form.DiscountAmount));
                 ShowSuccess("تمت إضافة القسم بنجاح.");
             }
 

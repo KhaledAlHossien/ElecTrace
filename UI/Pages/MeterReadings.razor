@@ -8,7 +8,7 @@
     <div>
         <p class="eyebrow">الاستهلاك الشهري</p>
         <h1>قراءات الكهرباء</h1>
-        <p>سجل القراءة الحالية لكل قسم، واستعرض الاستهلاك والتكلفة المحسوبة حسب الشهر والسنة.</p>
+        <p>سجل القراءة لكل قسم، واستعرض الاستهلاك والتكلفة المحسوبة حسب الشهر والسنة.</p>
     </div>
 </section>
 
@@ -59,7 +59,7 @@
                         </InputSelect>
                     </div>
                     <div>
-                        <label class="form-label">القراءة الحالية</label>
+                        <label class="form-label">القراءة</label>
                         <InputNumber class="form-control" @bind-Value="form.CurrentReading" />
                     </div>
                     @if (!string.IsNullOrWhiteSpace(message))

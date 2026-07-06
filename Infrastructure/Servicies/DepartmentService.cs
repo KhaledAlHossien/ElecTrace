@@ -1,7 +1,7 @@
 ﻿using Application_Contract.Interfaces;
 using Domain.Entities;
 using Persistence.Data;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,7 +11,10 @@ namespace Infrastructure.Servicies
     public class DepartmentService : IDepartmentService
     {
         private readonly DataContext _context;
-        public DepartmentService(DataContext context) => _context = context;
+        public DepartmentService(DataContext context)
+        {
+            _context = context;
+        }
 
         public async Task<Department> CreateAsync(Department dept)
         {
@@ -40,7 +43,11 @@ namespace Infrastructure.Servicies
         public async Task<bool> DeleteAsync(int id)
         {
             var dept = await _context.Departments.FindAsync(id);
-            if (dept == null) return false;
+            if (dept == null) 
+                throw new KeyNotFoundException("القسم غير موجود");
+
+            if (await _context.MeterReadings.AnyAsync(m => m.DepartmentId == id))
+                throw new InvalidOperationException("لا يمكن حذف الاقسام المرتبطة بقراءات");
 
             _context.Departments.Remove(dept);
             await _context.SaveChangesAsync();
@@ -74,6 +81,21 @@ namespace Infrastructure.Servicies
             return await _context.Departments
                 .AsNoTracking()
                 .ToListAsync();
+        }
+
+        public async Task<string> GenerateMeterCodeAsync()
+        {
+            var lastCode = await _context.Departments
+                .OrderByDescending(d => d.Id)
+                .Select(d => d.MeterCode)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(lastCode))
+                return "ETT001";
+
+            var numberPart = int.Parse(lastCode.Substring(3));
+
+            return $"ETT{(numberPart + 1):D3}";
         }
     }
 }

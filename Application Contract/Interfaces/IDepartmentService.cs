@@ -13,6 +13,7 @@ namespace Application_Contract.Interfaces
         Task<Department?> GetByIdAsync(int id);
         Task<bool> DeleteAsync(int id);
         Task<IEnumerable<Department>> GetByNameAsync(string name);
-        Task<IEnumerable<Department>> GetAllAsync();    
+        Task<IEnumerable<Department>> GetAllAsync();
+        Task<string> GenerateMeterCodeAsync();
     }
 }

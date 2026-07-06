@@ -21,13 +21,8 @@ namespace Application.Features.Department.Command.Create
 
         public async Task<DepartmentResponseDto> Handle(CreateDepartmentCommand request, CancellationToken cancellationToken)
         {
-            var existingDept = await _deptService.GetByMeterCodeAsync(request.DeptDto.MeterCode);
-            if (existingDept != null)
-            {
-                throw new Exception($"Meter Code '{request.DeptDto.MeterCode}' is already in use.");
-            }
-
             var dept = _mapper.Map<DepartmentEntity>(request.DeptDto);
+            dept.MeterCode = await _deptService.GenerateMeterCodeAsync();
 
             await _deptService.CreateAsync(dept);
 
