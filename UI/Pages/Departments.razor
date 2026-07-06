@@ -78,10 +78,16 @@
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-success" @onclick="ExportToExcel" disabled="@isExporting">
-                    @(isExporting ? "جاري التصدير..." : "📊 تصدير إلى Excel")
+                    @(isExporting ? "جاري التصدير..." : "📊تصدير")
                 </button>
-                <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
             </div>
+            <div class="filters">
+                <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد</label>
+                <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
+            </div>
+
+            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
+
         </div>
 
         @if (isLoading)
@@ -270,5 +276,24 @@
         public bool IsActive { get; set; } = true;
         public bool IsFixed { get; set; }
         public decimal FixedValue { get; set; } = 0;
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        isLoading = true;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
+            await Api.ImportDepartmentsAsync(stream);
+            ShowSuccess("تم استيراد البيانات بنجاح.");
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            ShowError("فشل الاستيراد: " + ex.Message);
+        }
+        finally { isLoading = false; }
     }
 }
