@@ -38,10 +38,6 @@
                         <label class="form-label">معامل التحويل</label>
                         <InputNumber class="form-control" @bind-Value="form.ConversionFactor" />
                     </div>
-                    <div>
-                        <label class="form-label">أقصى قيمة للعداد</label>
-                        <InputNumber class="form-control" @bind-Value="form.MaxCounter" />
-                    </div>
                 </div>
                 <div>
                     <label class="form-label">قيمة الخصم (مبلغ ثابت)</label>
@@ -158,13 +154,13 @@
             if (editingId is int id)
             {
                 // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter, form.DiscountAmount));
+                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount));
                 ShowSuccess("تم تعديل القسم بنجاح.");
             }
             else
             {
                 // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.MaxCounter, form.DiscountAmount));
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode,0, form.DiscountAmount));
                 ShowSuccess("تمت إضافة القسم بنجاح.");
             }
 
@@ -189,7 +185,6 @@
             Name = department.Name,
             MeterCode = department.MeterCode,
             ConversionFactor = department.ConversionFactor,
-            MaxCounter = department.MaxCounter,
             DiscountAmount = department.Discount // ⚠️ تعبئة مبلغ الخصم للتعديل
         };
     }
@@ -251,7 +246,6 @@
         public string Name { get; set; } = "";
         public string MeterCode { get; set; } = "";
         public decimal ConversionFactor { get; set; } = 1;
-        public double MaxCounter { get; set; } = 99999;
         public decimal DiscountAmount { get; set; } = 0; // ⚠️ إضافة الحقل المالي للـ Form بقيمة افتراضية 0
     }
 }

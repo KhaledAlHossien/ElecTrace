@@ -40,9 +40,6 @@ namespace Application.Features.Department.Command.Update
             if (dto.ConversionFactor.HasValue)
                 dept.ConversionFactor = dto.ConversionFactor.Value;
 
-            if (dto.MaxCounter.HasValue)
-                dept.MaxCounter = dto.MaxCounter.Value;
-
             // ⚠️ تم الإصلاح هنا: فحص القيمة وتمريرها باستخدام .Value لإنهاء خطأ الـ Cast
             if (dto.Discount.HasValue)
                 dept.Discount = dto.Discount.Value;

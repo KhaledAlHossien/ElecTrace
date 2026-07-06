@@ -18,7 +18,6 @@ namespace Application.Helper.Profiles
 
             CreateMap<UpdateDepartmentRequestDto, Department>()
       .ForMember(dest => dest.ConversionFactor, opt => opt.Condition(src => src.ConversionFactor.HasValue))
-      .ForMember(dest => dest.MaxCounter, opt => opt.Condition(src => src.MaxCounter.HasValue))
       // ⚠️ أضف هذا السطر الصريح لحقل الخصم لمنع التضارب
       .ForMember(dest => dest.Discount, opt => opt.Condition(src => src.Discount >= 0))
       // تأكد أن الاسم يطابق حقل الـ Entity (إذا كان DiscountAmount غيره لـ DiscountAmount)

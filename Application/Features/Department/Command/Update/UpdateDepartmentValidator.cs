@@ -22,10 +22,6 @@ namespace Application.Features.Department.Command.Update
             RuleFor(x => x.DeptDto.ConversionFactor)
                 .GreaterThan(0)
                 .When(x => x.DeptDto.ConversionFactor.HasValue);
-
-            RuleFor(x => x.DeptDto.MaxCounter)
-                .GreaterThan(0)
-                .When(x => x.DeptDto.MaxCounter.HasValue);
         }
     }
 }
