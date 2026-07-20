@@ -4,5 +4,5 @@ using System.Text;
 
 namespace Application_Contract.DTOs.Department
 {
-    public record DepartmentResponseDto(int Id,string Name,decimal ConversionFactor,string MeterCode,double MaxCounter,decimal Discount);
+    public record DepartmentResponseDto(int Id,string Name,decimal ConversionFactor,string MeterCode,decimal Discount,bool IsActive,bool IsFixed,decimal FixedValue);
 }

@@ -29,6 +29,10 @@
                     <label class="form-label">اسم القسم</label>
                     <InputText class="form-control" @bind-Value="form.Name" />
                 </div>
+                <div>
+                    <label class="form-label">رمز العداد</label>
+                    <InputText class="form-control" @bind-Value="form.MeterCode" />
+                </div>
                 <div class="form-row">
                     <div>
                         <label class="form-label">معامل التحويل</label>
@@ -39,6 +43,19 @@
                     <label class="form-label">قيمة الخصم (مبلغ ثابت)</label>
                     <InputNumber class="form-control" @bind-Value="form.DiscountAmount" placeholder="0" />
                     <div class="field-hint">ادخل قيمة الخصم كمبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
+                </div>
+                <div class="form-check">
+                    <InputCheckbox class="form-check-input" @bind-Value="form.IsActive" />
+                    <label class="form-check-label">نشطة</label>
+                </div>
+                <div class="form-check">
+                    <InputCheckbox class="form-check-input" @bind-Value="form.IsFixed" />
+                    <label class="form-check-label">ثابت</label>
+                </div>
+                <div>
+                    <label class="form-label">القيمة الثابتة</label>
+                    <InputNumber class="form-control" @bind-Value="form.FixedValue" placeholder="0" />
+                    <div class="field-hint">ادخل القيمة كمبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
                 </div>
 
                 @if (!string.IsNullOrWhiteSpace(message))
@@ -61,16 +78,10 @@
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-success" @onclick="ExportToExcel" disabled="@isExporting">
-                    @(isExporting ? "جاري التصدير..." : "📊تصدير")
+                    @(isExporting ? "جاري التصدير..." : "📊 تصدير إلى Excel")
                 </button>
+                <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
             </div>
-            <div class="filters">
-                <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد</label>
-                <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
-            </div>
-
-            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
-
         </div>
 
         @if (isLoading)
@@ -91,6 +102,9 @@
                             <th>رمز العداد</th>
                             <th>معامل التحويل</th>
                             <th>الخصم</th>
+                            <th>الحالة</th>
+                            <th>ثابت؟</th>
+                            <th>القيمة الثابتة</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -102,6 +116,9 @@
                                 <td>@department.MeterCode</td>
                                 <td>@department.ConversionFactor</td>
                                 <td>@department.Discount.ToString("N0") ل.س</td>
+                                <td>@(department.IsActive ? "نشط" : "غير نشط")</td>
+                                <td>@(department.IsFixed ? "نعم" : "لا")</td>
+                                <td>@department.FixedValue.ToString("N0") ل.س</td>
                                 <td class="table-actions">
                                     <button class="btn btn-outline-primary btn-sm" @onclick="() => EditDepartment(department)">تعديل</button>
                                     <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteDepartment(department.Id)">حذف</button>
@@ -154,13 +171,13 @@
             if (editingId is int id)
             {
                 // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount));
+                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
                 ShowSuccess("تم تعديل القسم بنجاح.");
             }
             else
             {
                 // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor,0, form.DiscountAmount));
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
                 ShowSuccess("تمت إضافة القسم بنجاح.");
             }
 
@@ -185,7 +202,10 @@
             Name = department.Name,
             MeterCode = department.MeterCode,
             ConversionFactor = department.ConversionFactor,
-            DiscountAmount = department.Discount // ⚠️ تعبئة مبلغ الخصم للتعديل
+            DiscountAmount = department.Discount,
+            IsActive = department.IsActive,
+            IsFixed = department.IsFixed,
+            FixedValue = department.FixedValue
         };
     }
 
@@ -246,25 +266,9 @@
         public string Name { get; set; } = "";
         public string MeterCode { get; set; } = "";
         public decimal ConversionFactor { get; set; } = 1;
-        public decimal DiscountAmount { get; set; } = 0; // ⚠️ إضافة الحقل المالي للـ Form بقيمة افتراضية 0
-    }
-
-    private async Task HandleFileSelected(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file == null) return;
-        isLoading = true;
-        try
-        {
-            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
-            await Api.ImportDepartmentsAsync(stream);
-            ShowSuccess("تم استيراد البيانات بنجاح.");
-            await LoadDepartments();
-        }
-        catch (Exception ex)
-        {
-            ShowError("فشل الاستيراد: " + ex.Message);
-        }
-        finally { isLoading = false; }
+        public decimal DiscountAmount { get; set; } = 0;
+        public bool IsActive { get; set; } = true;
+        public bool IsFixed { get; set; }
+        public decimal FixedValue { get; set; } = 0;
     }
 }
