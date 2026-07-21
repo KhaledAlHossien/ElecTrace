@@ -17,7 +17,7 @@ builder.Services.AddScoped<CustomAuthorizationHandler>();
 
 builder.Services.AddHttpClient("APIClient", client =>
 {
-    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https://localhost:54982/";
+    var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:7033/";
     client.BaseAddress = new Uri(apiBaseUrl);
 }).AddHttpMessageHandler<CustomAuthorizationHandler>();
 

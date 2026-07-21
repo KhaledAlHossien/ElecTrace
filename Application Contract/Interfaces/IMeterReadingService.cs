@@ -17,5 +17,7 @@ namespace Application_Contract.Interfaces
         Task UpdateAsync(MeterReading meterReading);
         Task DeleteAsync(MeterReading meterReading);
         Task<bool> ImportReadingsFromExcel(Stream fileStream, Months month, int year);
-    }
+        Task<bool> ImportCurrentReadingsFromExcel(Stream fileStream, Months month, int year);
+
+  }
 }

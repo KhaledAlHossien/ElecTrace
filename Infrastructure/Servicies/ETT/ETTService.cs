@@ -114,7 +114,9 @@ namespace Infrastructure.Servicies.ETT
 
         public byte[] GenerateReportExcel(string pattern, DateTime fromDate, DateTime toDate)
         {
-            DataTable dt = GetReport(pattern, fromDate, toDate);
+
+      var englishCulture = new System.Globalization.CultureInfo("en-US");
+      DataTable dt = GetReport(pattern, fromDate, toDate);
 
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add("الحركة اليومية");
@@ -220,7 +222,7 @@ namespace Infrastructure.Servicies.ETT
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
-                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate.ToString("dd-MM-yyyy")} ولغاية {toDate.ToString("dd-MM-yyyy")}";
+                    ws.Cell(row, 1).Value = $"اعتباراً من {fromDate.ToString("dd MMM yyyy", englishCulture)} ولغاية {toDate.ToString("dd MMM yyyy", englishCulture)}";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
@@ -262,7 +264,7 @@ namespace Infrastructure.Servicies.ETT
                 // تعبئة البيانات
                 // =========================
                 ws.Cell(row, 1).Value = billNumber;
-                ws.Cell(row, 2).Value = dr["Date"] != DBNull.Value ? Convert.ToDateTime(dr["Date"]).ToString("yyyy-M-d") : "";
+                ws.Cell(row, 2).Value = dr["Date"] != DBNull.Value ? Convert.ToDateTime(dr["Date"]).ToString("dd MMM yyyy", englishCulture) : "";
                 ws.Cell(row, 3).Value = customer;
                 ws.Cell(row, 4).Value = dr["Bill_Note"]?.ToString() ?? "";
                 ws.Cell(row, 5).Value = dr["Item_Notes"]?.ToString() ?? "";
