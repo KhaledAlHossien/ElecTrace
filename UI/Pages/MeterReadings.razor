@@ -86,12 +86,30 @@
                             disabled="@isLoading">
                         تقرير الاستهلاك
                     </button>
-                    <label class="btn btn-outline-primary" for="fileInputOld" style="cursor: pointer; margin-left: 10px;">
+                    <label class="btn btn-outline-primary"
+                           for="fileInputOld"
+                           title="
+                        A:رقم تسلسلي
+                        B:اسم القسم
+                        C: القراءة السابقة
+                        D: القراءة الحالية
+                        E:الاستهلاك
+                        F:فارغ
+                        G:سعر الكيلو واط
+                        H:القيمة النهائية
+                        I:رمز العداد
+                        ">
                         استيراد إكسل
                     </label>
                     <InputFile id="fileInputOld" OnChange="HandleFileSelected" hidden />
 
-                    <label class="btn btn-outline-primary" for="fileInputCurrent" style="cursor: pointer; margin-left: 10px;">
+                    <label class="btn btn-outline-primary"
+                           for="fileInputCurrent"
+                           title="
+                        A:رقم تسلسلي
+                        B:رمز العداد
+                        C: القراءة الحالية
+                        ">
                         استيراد قراءات حالية
                     </label>
                     <InputFile id="fileInputCurrent" OnChange="ImportCurrentReadings" hidden />
