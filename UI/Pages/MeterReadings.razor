@@ -1,6 +1,7 @@
 @page "/readings"
 @attribute [Authorize]
 @inject IApiDataService Api
+@inject IJSRuntime Js
 
 <PageTitle>قراءات الكهرباء</PageTitle>
 
@@ -80,8 +81,21 @@
                     <p>@readings.Count قراءة ظاهرة.</p>
                 </div>
                 <div class="filters">
-                    <label class="btn btn-outline-primary" for="fileInput" style="cursor: pointer; margin-left: 10px;">استيراد إكسل</label>
-                    <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
+                    <button class="btn btn-outline-success"
+                            @onclick="ExportElectricityReport"
+                            disabled="@isLoading">
+                        تقرير الاستهلاك
+                    </button>
+                    <label class="btn btn-outline-primary" for="fileInputOld" style="cursor: pointer; margin-left: 10px;">
+                        استيراد إكسل
+                    </label>
+                    <InputFile id="fileInputOld" OnChange="HandleFileSelected" hidden />
+
+                    <label class="btn btn-outline-primary" for="fileInputCurrent" style="cursor: pointer; margin-left: 10px;">
+                        استيراد قراءات حالية
+                    </label>
+                    <InputFile id="fileInputCurrent" OnChange="ImportCurrentReadings" hidden />
+
                     <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged">
                         @foreach (var month in Enum.GetValues<Months>())
                         {
@@ -160,7 +174,8 @@
     protected override async Task OnInitializedAsync()
     {
         form.Month = selectedMonth;
-        departmentResults = await Api.SearchDepartmentsAsync("");
+        var deps = await Api.SearchDepartmentsAsync("");
+        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
         await LoadReadings();
     }
 
@@ -183,12 +198,32 @@
         finally { isLoading = false; }
     }
 
+    private async Task ImportCurrentReadings(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        isLoading = true;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
+            await Api.ImportCurrentReadingsAsync(stream, selectedMonth, selectedYear);
+            ShowSuccess("تم استيراد البيانات بنجاح.");
+            await LoadReadings();
+        }
+        catch (Exception ex)
+        {
+            ShowError("فشل الاستيراد: " + ex.Message);
+        }
+        finally { isLoading = false; }
+    }
+
     private async Task SearchDepartments(ChangeEventArgs args)
     {
         departmentSearch = args.Value?.ToString() ?? "";
         selectedDepartment = null;
         form.DepartmentId = 0;
-        departmentResults = await Api.SearchDepartmentsAsync(departmentSearch);
+        var deps = await Api.SearchDepartmentsAsync(departmentSearch);
+        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
     }
 
     private void SelectDepartment(DepartmentResponseDto department)
@@ -204,7 +239,8 @@
         selectedDepartment = null;
         form.DepartmentId = 0;
         departmentSearch = "";
-        departmentResults = await Api.SearchDepartmentsAsync("");
+        var deps = await Api.SearchDepartmentsAsync("");
+        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
     }
 
     private async Task OnMonthChanged(ChangeEventArgs args)
@@ -289,5 +325,28 @@
         public int DepartmentId { get; set; }
         public Months Month { get; set; }
         public decimal CurrentReading { get; set; }
+    }
+
+    private async Task ExportElectricityReport()
+    {
+        try
+        {
+            var result = await Api.DownloadElectricityReportAsync(selectedMonth, selectedYear);
+
+            if (!result.IsSuccess)
+            {
+                ShowError(result.ErrorMessage ?? "لا يوجد تقرير لهذا الشهر.");
+                return;
+            }
+
+            var base64 = Convert.ToBase64String(result.Content!);
+            await Js.InvokeVoidAsync("downloadFileFromBytes", result.FileName, result.ContentType, base64);
+
+            ShowSuccess("تم تنزيل تقرير الاستهلاك بنجاح.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("فشل تنزيل التقرير: " + ex.Message);
+        }
     }
 }
