@@ -9,9 +9,8 @@ namespace Application.Features.MeterReading.Command.Cerate
     {
         public CreateMeterReadingCommandValidator()
         {
-            RuleFor(x => x.Dto.DepartmentId)
-                .NotEmpty().WithMessage("Department ID is required.")
-                .GreaterThan(0).WithMessage("Department ID must be greater than 0.");
+            RuleFor(x => x.Dto.MeterCode)
+                .NotEmpty().WithMessage("Meter Code is required."); 
 
             RuleFor(x => x.Dto.Month)
                 .IsInEnum().WithMessage("Invalid month value.");
