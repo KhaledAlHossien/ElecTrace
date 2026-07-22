@@ -239,7 +239,7 @@
     {
         departmentSearch = args.Value?.ToString() ?? "";
         selectedDepartment = null;
-        form.DepartmentId = 0;
+        form.MeterCode = string.Empty; // تحديث
         var deps = await Api.SearchDepartmentsAsync(departmentSearch);
         departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
     }
@@ -247,7 +247,7 @@
     private void SelectDepartment(DepartmentResponseDto department)
     {
         selectedDepartment = department;
-        form.DepartmentId = department.Id;
+        form.MeterCode = department.MeterCode; // تحديث
         departmentSearch = $"{department.Name} - {department.MeterCode}";
         departmentResults = [];
     }
@@ -255,7 +255,7 @@
     private async Task ClearSelectedDepartment()
     {
         selectedDepartment = null;
-        form.DepartmentId = 0;
+        form.MeterCode = string.Empty; // تحديث
         departmentSearch = "";
         var deps = await Api.SearchDepartmentsAsync("");
         departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
@@ -289,35 +289,23 @@
 
     private async Task SaveReading()
     {
+        // التحقق من كود العداد بدلاً من المعرف
         if (string.IsNullOrWhiteSpace(form.MeterCode))
         {
-            ShowError("أدخل كود العداد قبل تسجيل القراءة.");
+            ShowError("اختر القسم قبل تسجيل القراءة.");
             return;
         }
-
         isSaving = true;
         try
         {
-            var requestDto = new CreateMeterReadingRequestDto(form.MeterCode, form.Month, form.CurrentReading);
-
-            await Api.CreateMeterReadingAsync(requestDto);
-
+            await Api.CreateMeterReadingAsync(new CreateMeterReadingRequestDto(form.MeterCode, form.Month, form.CurrentReading));
             ShowSuccess("تم تسجيل القراءة.");
             selectedMonth = form.Month;
-
             form.CurrentReading = 0;
-            form.MeterCode = string.Empty;
-
             await LoadReadings();
         }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-        finally
-        {
-            isSaving = false;
-        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { isSaving = false; }
     }
 
     private async Task DeleteReading(int id)
@@ -351,9 +339,9 @@
         _ => month.ToString()
     };
 
+    // التحديث هنا تم بالكامل
     private sealed class ReadingForm
     {
-        public int DepartmentId { get; set; }
         public string MeterCode { get; set; } = string.Empty;
         public Months Month { get; set; }
         public decimal CurrentReading { get; set; }
