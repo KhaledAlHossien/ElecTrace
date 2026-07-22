@@ -13,14 +13,13 @@
     </div>
 </section>
 
-@* تم تعديل الهيكلية لتكون بنظام الأعمدة *@
 <div class="row">
     <div class="col-md-3">
         <div class="panel">
             <div class="panel-header">
                 <div>
                     <h2>إدخال قراءة</h2>
-                    <p>ابحث باسم القسم أو رمز العداد ثم اختر النتيجة المناسبة.</p>
+                    <p>ابحث باسم القسم أو رمز العداد ثم اختر النتيجة.</p>
                 </div>
             </div>
 
@@ -28,27 +27,31 @@
                 <DataAnnotationsValidator />
                 <div class="form-stack">
                     <div>
-                        <label class="form-label">القسم</label>
-                        <InputText class="form-control" placeholder="اكتب اسم القسم أو رمز العداد..." @bind-Value="departmentSearch" @oninput="SearchDepartments" />
-                        @if (selectedDepartment is not null)
-                        {
-                            <div class="selected-department">
-                                <span>@selectedDepartment.Name - @selectedDepartment.MeterCode</span>
-                                <button class="btn btn-link btn-sm" type="button" @onclick="ClearSelectedDepartment">تغيير</button>
-                            </div>
-                        }
-                        else if (departmentResults.Any())
-                        {
-                            <div class="department-results">
-                                @foreach (var department in departmentResults)
-                                {
-                                    <button type="button" @onclick="() => SelectDepartment(department)">
-                                        <strong>@department.Name</strong>
-                                        <span>@department.MeterCode</span>
-                                    </button>
-                                }
-                            </div>
-                        }
+                        <label class="form-label">القسم أو العداد</label>
+                        <div style="position: relative;">
+                            <input type="text" class="form-control"
+                                   placeholder="اكتب اسم القسم أو رمز العداد..."
+                                   value="@form.MeterCode"
+                                   @oninput="FilterDepartments"
+                                   @onfocus="ShowDropdown"
+                                   @onblur="HideDropdown"
+                                   autocomplete="off" />
+
+                            @if (showDropdown && departmentResults.Any())
+                            {
+                                <div class="list-group shadow mt-1" style="position: absolute; z-index: 1000; width: 100%; max-height: 250px; overflow-y: auto; background-color: white;">
+                                    @foreach (var department in departmentResults)
+                                    {
+                                        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                                @onmousedown="() => SelectDepartment(department)"
+                                                @onmousedown:preventDefault>
+                                            <strong>@department.Name</strong>
+                                            <span class="badge bg-primary rounded-pill">@department.MeterCode</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
                     <div>
                         <label class="form-label">الشهر</label>
@@ -65,9 +68,9 @@
                     </div>
                     @if (!string.IsNullOrWhiteSpace(message))
                     {
-                        <div class="alert @messageCss">@message</div>
+                        <div class="alert @messageCss mt-2">@message</div>
                     }
-                    <button class="btn btn-primary w-100" type="submit" disabled="@isSaving">تسجيل القراءة</button>
+                    <button class="btn btn-primary w-100 mt-3" type="submit" disabled="@isSaving">تسجيل القراءة</button>
                 </div>
             </EditForm>
         </div>
@@ -177,24 +180,73 @@
 </div>
 
 @code {
+    // جلبنا فكرة البحث المحلي من صفحة الأقسام لضمان السرعة
+    private List<DepartmentResponseDto> allActiveDepartments = [];
     private List<DepartmentResponseDto> departmentResults = [];
-    private DepartmentResponseDto? selectedDepartment;
+
     private List<MeterReadingResponseDto> readings = [];
     private ReadingForm form = new();
     private Months selectedMonth = (Months)DateTime.Today.Month;
     private int selectedYear = DateTime.Today.Year;
     private bool isLoading = true;
     private bool isSaving;
-    private string departmentSearch = "";
+    private bool showDropdown = false;
     private string message = "";
     private string messageCss = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
         form.Month = selectedMonth;
-        var deps = await Api.SearchDepartmentsAsync("");
-        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
+
+        // جلب الأقسام مرة واحدة عند التحميل (نفس طريقتك بـ departments.razor)
+        var deps = await Api.GetDepartmentsAsync();
+        allActiveDepartments = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
+
         await LoadReadings();
+    }
+
+    private void FilterDepartments(ChangeEventArgs e)
+    {
+        form.MeterCode = e.Value?.ToString() ?? "";
+        UpdateSearch();
+    }
+
+    private void ShowDropdown()
+    {
+        UpdateSearch();
+    }
+
+    private async Task HideDropdown()
+    {
+        // تأخير بسيط جداً للسماح بحدث الضغط على القائمة بالتنفيذ قبل إخفائها
+        await Task.Delay(150);
+        showDropdown = false;
+        StateHasChanged();
+    }
+
+    private void UpdateSearch()
+    {
+        if (string.IsNullOrWhiteSpace(form.MeterCode))
+        {
+            // عرض أول 5 نتائج افتراضياً
+            departmentResults = allActiveDepartments.Take(5).ToList();
+        }
+        else
+        {
+            // فلترة محلية سريعة جداً بدون API
+            departmentResults = allActiveDepartments
+                .Where(d => d.Name.Contains(form.MeterCode, StringComparison.OrdinalIgnoreCase) ||
+                            d.MeterCode.Contains(form.MeterCode, StringComparison.OrdinalIgnoreCase))
+                .Take(5).ToList();
+        }
+
+        showDropdown = departmentResults.Any();
+    }
+
+    private void SelectDepartment(DepartmentResponseDto department)
+    {
+        form.MeterCode = department.MeterCode;
+        showDropdown = false;
     }
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
@@ -235,32 +287,6 @@
         finally { isLoading = false; }
     }
 
-    private async Task SearchDepartments(ChangeEventArgs args)
-    {
-        departmentSearch = args.Value?.ToString() ?? "";
-        selectedDepartment = null;
-        form.MeterCode = string.Empty; // تحديث
-        var deps = await Api.SearchDepartmentsAsync(departmentSearch);
-        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
-    }
-
-    private void SelectDepartment(DepartmentResponseDto department)
-    {
-        selectedDepartment = department;
-        form.MeterCode = department.MeterCode; // تحديث
-        departmentSearch = $"{department.Name} - {department.MeterCode}";
-        departmentResults = [];
-    }
-
-    private async Task ClearSelectedDepartment()
-    {
-        selectedDepartment = null;
-        form.MeterCode = string.Empty; // تحديث
-        departmentSearch = "";
-        var deps = await Api.SearchDepartmentsAsync("");
-        departmentResults = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
-    }
-
     private async Task OnMonthChanged(ChangeEventArgs args)
     {
         if (Enum.TryParse<Months>(args.Value?.ToString(), out var month))
@@ -289,10 +315,9 @@
 
     private async Task SaveReading()
     {
-        // التحقق من كود العداد بدلاً من المعرف
         if (string.IsNullOrWhiteSpace(form.MeterCode))
         {
-            ShowError("اختر القسم قبل تسجيل القراءة.");
+            ShowError("الرجاء كتابة أو اختيار رمز العداد.");
             return;
         }
         isSaving = true;
@@ -301,7 +326,11 @@
             await Api.CreateMeterReadingAsync(new CreateMeterReadingRequestDto(form.MeterCode, form.Month, form.CurrentReading));
             ShowSuccess("تم تسجيل القراءة.");
             selectedMonth = form.Month;
+
             form.CurrentReading = 0;
+            form.MeterCode = string.Empty;
+            showDropdown = false;
+
             await LoadReadings();
         }
         catch (Exception ex) { ShowError(ex.Message); }
@@ -339,7 +368,6 @@
         _ => month.ToString()
     };
 
-    // التحديث هنا تم بالكامل
     private sealed class ReadingForm
     {
         public string MeterCode { get; set; } = string.Empty;
