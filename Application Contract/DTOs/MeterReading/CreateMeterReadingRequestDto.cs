@@ -6,7 +6,7 @@ using System.Text;
 namespace Application_Contract.DTOs.MeterReading
 {
     public record CreateMeterReadingRequestDto(
-        int DepartmentId,
+        string MeterCode,
         Months Month,
         decimal CurrentReading
     );
