@@ -15,7 +15,7 @@ namespace Persistence.Data
             var optionsBuilder = new DbContextOptionsBuilder<DataContext>();
 
             optionsBuilder.UseSqlServer(
-                "Data Source=HOMAMNASSER;Initial Catalog=ElicTrace;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30"
+                "Data Source=srv1\\mssql2014;Initial Catalog=ElecTrace;User Id=sa;Password=3312380;Integrated Security=false;Connect Timeout=30;Encrypt=True;Trust Server Certificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30"
                 );
 
             return new DataContext(optionsBuilder.Options);
