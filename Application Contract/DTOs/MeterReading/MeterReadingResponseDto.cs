@@ -19,7 +19,7 @@ namespace Application_Contract.DTOs.MeterReading
         public string DepartmentName { get; set; } = string.Empty;
         public decimal TotalCost { get; set; }
         public decimal PricePerUnit { get; set; }
-        public string? CreatedByUserId { get; set; } // أضف هذه
-        public string? CreatedByUserName { get; set; } // الآن يمكنك تعديلها بحرية
+        public string? CreatedByUserId { get; set; }
+        public string? CreatedByUserName { get; set; }
     }
 }

@@ -6,6 +6,7 @@ using Application.Features.Department.Queries.GetAll;
 using Application.Features.Department.Queries.GetAllMeterCode;
 using Application.Features.Department.Queries.GetAllMeterCodeExcelReport;
 using Application.Features.Department.Queries.GetById;
+using Application.Features.Department.Queries.GetUnReadYet;
 using Application.Features.Department.Queries.Search;
 
 using Application_Contract.DTOs.Department;
@@ -17,95 +18,102 @@ using Microsoft.AspNetCore.Mvc;
 namespace API.Controllers
 {
 
-    [ApiController]
-    [Route("api/Department")]
-    public class DepartmentController : ControllerBase
+  [ApiController]
+  [Route("api/Department")]
+  public class DepartmentController : ControllerBase
+  {
+    private readonly IMediator _mediator;
+
+    public DepartmentController(IMediator mediator)
     {
-        private readonly IMediator _mediator;
-
-        public DepartmentController(IMediator mediator)
-        {
-            _mediator = mediator;
-        }
-
-        [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromBody] CreateDepartmentRequestDto dto)
-        {
-            var result = await _mediator.Send(new CreateDepartmentCommand(dto));
-
-            return Ok(result);
-        }
-
-        [HttpPut("Update/{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateDepartmentRequestDto dto)
-        {
-            var result = await _mediator.Send(new UpdateDepartmentCommand(id, dto));
-
-            return Ok(result);
-        }
-
-        [HttpDelete("Delete/{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            await _mediator.Send(new DeleteDepartmentCommand(id));
-            return Ok(new { Message = "Department deleted successfully" });
-        }
-
-        [HttpGet("Get/{id}")]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var result = await _mediator.Send(new GetDepartmentByIdQuery(id));
-
-            return Ok(result);
-        }
-        [HttpGet("Search/{name}")]
-        public async Task<IActionResult> GetByName(string name)
-        {
-            var result = await _mediator.Send(new GetDepartmentByNameQuery(name));
-            return Ok(result);
-        }
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAll()
-        {
-            var result = await _mediator.Send(new GetAllDepartmentsQuery());
-            return Ok(result);
-        }
-
-        [HttpGet("GetAllMeterCode")]
-        public async Task<IActionResult> GetAllMeterCode()
-        {
-            var result = await _mediator.Send(new GetAllMeterCodeQuery());
-
-            return Ok(result);
-        }
-
-        [HttpGet("GetAllMeterCodeToExcel")]
-        public async Task<IActionResult> ExportMeterCodesToExcel()
-        {
-            var fileBytes = await _mediator.Send(new GetAllMeterCodeToExcelReportQuery());
-
-            if (fileBytes == null || fileBytes.Length == 0)
-                return NotFound("لا توجد بيانات لتصديرها.");
-
-            return File(
-                fileBytes,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"MeterCodes_{DateTime.Now:yyyyMMdd}.xlsx"
-            );
-        }
-
-        [HttpPost("import")]
-        public async Task<IActionResult> Import(IFormFile file)
-        {
-            if (file == null) return BadRequest("الملف مفقود");
-
-            using var stream = file.OpenReadStream();
-            var command = new ImportDepartmentsCommand(stream);
-
-            var result = await _mediator.Send(command);
-            return result ? Ok("تم الاستيراد بنجاح") : BadRequest("فشل الاستيراد");
-        }
-
+      _mediator = mediator;
     }
+
+    [HttpPost("Create")]
+    public async Task<IActionResult> Create([FromBody] CreateDepartmentRequestDto dto)
+    {
+      var result = await _mediator.Send(new CreateDepartmentCommand(dto));
+
+      return Ok(result);
+    }
+
+    [HttpPut("Update/{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateDepartmentRequestDto dto)
+    {
+      var result = await _mediator.Send(new UpdateDepartmentCommand(id, dto));
+
+      return Ok(result);
+    }
+
+    [HttpDelete("Delete/{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+      await _mediator.Send(new DeleteDepartmentCommand(id));
+      return Ok(new { Message = "Department deleted successfully" });
+    }
+
+    [HttpGet("Get/{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+      var result = await _mediator.Send(new GetDepartmentByIdQuery(id));
+
+      return Ok(result);
+    }
+    [HttpGet("Search/{name}")]
+    public async Task<IActionResult> GetByName(string name)
+    {
+      var result = await _mediator.Send(new GetDepartmentByNameQuery(name));
+      return Ok(result);
+    }
+    [HttpGet("GetAll")]
+    public async Task<IActionResult> GetAll()
+    {
+      var result = await _mediator.Send(new GetAllDepartmentsQuery());
+      return Ok(result);
+    }
+
+    [HttpGet("GetUnReadYet")]
+    public async Task<IActionResult> GetUnReadYet([FromQuery] Months month, [FromQuery] int year)
+    {
+      var result = await _mediator.Send(new GetUnReadYetQuery(month, year));
+      return Ok(result);
+    }
+
+    [HttpGet("GetAllMeterCode")]
+    public async Task<IActionResult> GetAllMeterCode()
+    {
+      var result = await _mediator.Send(new GetAllMeterCodeQuery());
+
+      return Ok(result);
+    }
+
+    [HttpGet("GetAllMeterCodeToExcel")]
+    public async Task<IActionResult> ExportMeterCodesToExcel()
+    {
+      var fileBytes = await _mediator.Send(new GetAllMeterCodeToExcelReportQuery());
+
+      if (fileBytes == null || fileBytes.Length == 0)
+        return NotFound("لا توجد بيانات لتصديرها.");
+
+      return File(
+          fileBytes,
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          $"MeterCodes_{DateTime.Now:yyyyMMdd}.xlsx"
+      );
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(IFormFile file)
+    {
+      if (file == null) return BadRequest("الملف مفقود");
+
+      using var stream = file.OpenReadStream();
+      var command = new ImportDepartmentsCommand(stream);
+
+      var result = await _mediator.Send(command);
+      return result ? Ok("تم الاستيراد بنجاح") : BadRequest("فشل الاستيراد");
+    }
+
+  }
 }
 

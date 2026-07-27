@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace API.SystemBuild
 {
@@ -13,7 +14,7 @@ namespace API.SystemBuild
         public static IServiceCollection AddApiRegistrationServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddControllers();
-            services.AddEndpointsApiExplorer();
+      services.AddEndpointsApiExplorer();
 
             // 1. استخراج الإعدادات من القسم الصحيح JwtSettings لتجنب خطأ 'Value cannot be null'
             var jwtKey = configuration["JwtSettings:Key"];
