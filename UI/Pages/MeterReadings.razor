@@ -154,7 +154,7 @@
                         <tbody>
                             @foreach (var reading in readings)
                             {
-                                <tr>
+                                <tr class="@(reading.CurrentReading < reading.PreviousReading ? "table-warning" : "")">
                                     <td><strong>@reading.DepartmentName</strong></td>
                                     <td>@MonthName(reading.Month)</td>
                                     <td>@reading.PreviousReading.ToString("N0")</td>

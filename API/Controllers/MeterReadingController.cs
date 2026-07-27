@@ -1,4 +1,5 @@
-﻿using Application.Features.MeterReading.Command.Cerate;
+﻿using Application.Features.MeterReading.Command.AddFromMobile;
+using Application.Features.MeterReading.Command.Cerate;
 using Application.Features.MeterReading.Command.Delete;
 using Application.Features.MeterReading.Command.ImportCurrentReadings;
 using Application.Features.MeterReading.Command.ImportReadings;
@@ -20,20 +21,23 @@ namespace API.Controllers
   public class MeterReadingController : ControllerBase
   {
     private readonly IMediator _mediator;
-    private readonly IMeterReadingService _meterReadingService;
-    private readonly IMapper _mapper;
 
     public MeterReadingController(IMediator mediator, IMeterReadingService meterReadingService, IMapper mapper)
     {
       _mediator = mediator;
-      _meterReadingService = meterReadingService;
-      _mapper = mapper;
     }
 
     [HttpPost("Create")]
     public async Task<IActionResult> Create([FromBody] CreateMeterReadingRequestDto dto)
     {
       var result = await _mediator.Send(new CreateMeterReadingCommand(dto));
+      return Ok(result);
+    }
+
+    [HttpPost("AddFromMobile")]
+    public async Task<IActionResult> AddFromMobile([FromBody] CreateMeterReadingRequestDto dto , bool unusualAccept = false , Lang lang = Lang.Ar)
+    {
+      var result = await _mediator.Send(new AddMeterReadingFromMobileCommand(dto , unusualAccept , lang));
       return Ok(result);
     }
 
@@ -45,7 +49,7 @@ namespace API.Controllers
     }
 
     [HttpGet("GetByMonthAndYear")]
-    public async Task<IActionResult> GetByMonthAndYear([FromQuery] Domain.Enums.Months month, [FromQuery] int year)
+    public async Task<IActionResult> GetByMonthAndYear([FromQuery] Months month, [FromQuery] int year)
     {
       var result = await _mediator.Send(new GetMeterReadingsByMonthAndYearQuery(month, year));
       return Ok(result);

@@ -195,5 +195,10 @@ namespace Infrastructure.Servicies
 
       return await _context.SaveChangesAsync() > 0;
     }
+
+    public async Task<bool> IsRead(int departmentId, Months month, int year)
+    {
+      return await _context.MeterReadings.AnyAsync(m => m.DepartmentId == departmentId && m.Month == month && m.CreatedAt.Year == year);
+    }
   }
 }

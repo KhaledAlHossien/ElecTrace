@@ -198,7 +198,7 @@ namespace Infrastructure.Servicies
           // صف القيم
           int valueRow = labelRow + 1;
           worksheet.Cell(valueRow, 2).Value = invoiceData.ActualConsumption;
-          worksheet.Cell(valueRow, 3).Value = invoiceDate.ToString("dd MMM yyyy", englishCulture); ;
+          worksheet.Cell(valueRow, 3).Value = invoiceDate.ToString("dd/MM/yyyy", englishCulture); ;
           worksheet.Cell(valueRow, 4).Value = "كهرباء";
 
           var valueRange = worksheet.Range(valueRow, 2, valueRow, 4);
@@ -291,7 +291,7 @@ namespace Infrastructure.Servicies
       var worksheet = workbook.Worksheets.Add(sheetName);
       worksheet.RightToLeft = true;
 
-      worksheet.Cell(1, 1).Value = $"تاريخ التقرير: {DateTime.Now.ToString("dd MMM yyyy", englishCulture)}";
+      worksheet.Cell(1, 1).Value = $"تاريخ التقرير: {DateTime.Now.ToString("dd/MM/yyyy", englishCulture)}";
       worksheet.Cell(1, 1).Style.Font.Italic = true;
       worksheet.Cell(1, 1).Style.Font.FontColor = XLColor.FromHtml("#7f8c8d");
 
