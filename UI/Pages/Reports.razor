@@ -3,96 +3,137 @@
 @using Application_Contract.DTOs.Pattern
 @inject IApiDataService Api
 @inject IJSRuntime Js
+@inject ToastService Toasts
 
 <PageTitle>التقارير</PageTitle>
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">Excel</p>
-        <h1>تقارير النظام</h1>
-        <p>تنزيل تقارير الاستهلاك الشهري للكهرباء وتقارير الحركة اليومية.</p>
+        <h1>التقارير</h1>
+        <p>حدد الفترة ونزّل التقرير بصيغة Excel.</p>
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(message))
-{
-    <div class="alert @messageCss mb-3">@message</div>
-}
-
-<section class="panel reports-panel mb-4">
-    <div class="panel-header filter-header">
-        <div>
+<section class="rpt-card">
+    <header class="rpt-head">
+        <div class="rpt-head-text">
             <h2>تقارير الكهرباء</h2>
+            <p>مبنية على القراءات المسجلة للفترة المحددة.</p>
         </div>
-        <div class="filters">
-            <select class="form-select" @bind="selectedMonth">
-                @foreach (var month in Enum.GetValues<Months>())
-                {
-                    <option value="@month">@MonthName(month)</option>
-                }
-            </select>
-            <input class="form-control year-input" type="number" @bind="selectedYear" />
+        <div class="rpt-params">
+            <label class="rpt-param">
+                <span>الشهر</span>
+                <select class="form-select" @bind="selectedMonth">
+                    @foreach (var month in Enum.GetValues<Months>())
+                    {
+                        <option value="@month">@MonthName(month)</option>
+                    }
+                </select>
+            </label>
+            <label class="rpt-param rpt-param-sm">
+                <span>السنة</span>
+                <input class="form-control" type="number" @bind="selectedYear" />
+            </label>
         </div>
-    </div>
+    </header>
 
-    <div class="report-actions">
-        <button class="report-card report-button" type="button" @onclick="DownloadElectricityReport" disabled="@isDownloading">
-            <span>تقرير الاستهلاك</span>
-            <strong>Electricity Report</strong>
-            <small>قراءات، استهلاك، وقيم الفواتير للشهر المحدد.</small>
-        </button>
-        <button class="report-card report-button" type="button" @onclick="DownloadInvoicesReport" disabled="@isDownloading">
-            <span>كل الفواتير</span>
-            <strong>All Invoices</strong>
-            <small>ملف جاهز للطباعة والمراجعة لكل الأقسام.</small>
-        </button>
-    </div>
+    <ul class="rpt-list">
+        <li class="rpt-row" style="--i:0">
+            <span class="rpt-icon"><Icon Name="zap" Size="18" /></span>
+            <div class="rpt-info">
+                <strong>تقرير الاستهلاك</strong>
+                <span>القراءات والاستهلاك وقيمة فاتورة كل قسم.</span>
+            </div>
+            @DownloadMeta("electricity")
+            <button class="btn btn-soft rpt-btn" type="button" @onclick="DownloadElectricityReport" disabled="@isDownloading">
+                @DownloadLabel("electricity")
+            </button>
+        </li>
+
+        <li class="rpt-row" style="--i:1">
+            <span class="rpt-icon"><Icon Name="file-text" Size="18" /></span>
+            <div class="rpt-info">
+                <strong>كل الفواتير</strong>
+                <span>ملف شامل لكل الأقسام، ويميّز الأقسام غير المقروءة.</span>
+            </div>
+            @DownloadMeta("invoices")
+            <button class="btn btn-soft rpt-btn" type="button" @onclick="DownloadInvoicesReport" disabled="@isDownloading">
+                @DownloadLabel("invoices")
+            </button>
+        </li>
+    </ul>
 </section>
 
-<section class="panel reports-panel">
-    <div class="panel-header filter-header">
-        <div>
-            <h2>تقرير الحركة اليومية (المبيعات)</h2>
-            <p>حدد النمط والفترة الزمنية لتصدير الحركة اليومية إلى إكسل.</p>
-        </div>
-        <div class="filters">
-            <select class="form-select" @bind="selectedPattern">
-                <option value="">-- اختر النمط --</option>
-                @foreach (var pattern in patterns)
+<section class="rpt-card">
+    <header class="rpt-head">
+        <div class="rpt-head-text">
+            <h2>
+                نظام الأمين
+                @if (isLoadingPatterns)
                 {
-                    <option value="@pattern.Id.ToString()">@pattern.Name</option>
+                    <span class="rpt-conn"><span class="spinner"></span> جاري الاتصال</span>
                 }
-            </select>
-
-            <input class="form-control" type="date" @bind="startDate" title="من تاريخ" />
-            <input class="form-control" type="date" @bind="endDate" title="إلى تاريخ" />
+                else if (patterns.Any())
+                {
+                    <span class="rpt-conn is-ok"><span class="dot"></span> متصل</span>
+                }
+                else
+                {
+                    <span class="rpt-conn is-off"><span class="dot"></span> غير متصل</span>
+                }
+            </h2>
+            <p>الحركة اليومية حسب النمط والفترة الزمنية.</p>
         </div>
-    </div>
+        <div class="rpt-params">
+            <label class="rpt-param">
+                <span>النمط</span>
+                <select class="form-select" @bind="selectedPattern" disabled="@isLoadingPatterns">
+                    <option value="">@(isLoadingPatterns ? "جاري التحميل..." : "اختر النمط")</option>
+                    @foreach (var pattern in patterns)
+                    {
+                        <option value="@pattern.Id.ToString()">@pattern.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="rpt-param">
+                <span>من</span>
+                <input class="form-control" type="date" @bind="startDate" />
+            </label>
+            <label class="rpt-param">
+                <span>إلى</span>
+                <input class="form-control" type="date" @bind="endDate" />
+            </label>
+        </div>
+    </header>
 
-    <div class="report-actions">
-        <button class="report-card report-button" type="button" @onclick="DownloadEttReport" disabled="@isDownloading">
-            <span>تقرير مفصل</span>
-            <strong>Daily Movement</strong>
-            <small>ملف إكسل مفصل يضم الفواتير والزبائن والمجاميع.</small>
-        </button>
-    </div>
+    <ul class="rpt-list">
+        <li class="rpt-row" style="--i:0">
+            <span class="rpt-icon"><Icon Name="activity" Size="18" /></span>
+            <div class="rpt-info">
+                <strong>الحركة اليومية — تفصيلي</strong>
+                <span>الفواتير والمواد مع مجموع كل فاتورة وكل زبون.</span>
+            </div>
+            @DownloadMeta("ett")
+            <button class="btn btn-soft rpt-btn" type="button" @onclick="DownloadEttReport" disabled="@(isDownloading || isLoadingPatterns)">
+                @DownloadLabel("ett")
+            </button>
+        </li>
+    </ul>
 </section>
 
 @code {
-    // === متغيرات تقارير الكهرباء ===
     private Months selectedMonth = (Months)DateTime.Today.Month;
     private int selectedYear = DateTime.Today.Year;
 
-    // === متغيرات تقارير ETT ===
     private List<PatternDto> patterns = new();
     private string selectedPattern = "";
     private DateTime startDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
     private DateTime endDate = DateTime.Today;
 
-    // === متغيرات عامة ===
     private bool isDownloading;
-    private string message = "";
-    private string messageCss = "alert-info";
+    private bool isLoadingPatterns = true;
+    private string busyReport = "";
+    private readonly Dictionary<string, DateTime> lastDownloaded = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -104,75 +145,98 @@
                 // البحث الذكي عن النمط الذي يحتوي على كلمة "مبيعات"
                 var salesPattern = patterns.FirstOrDefault(p => p.Name != null && p.Name.Contains("مبيعات", StringComparison.OrdinalIgnoreCase));
 
-                if (salesPattern != null)
-                {
-                    selectedPattern = salesPattern.Id.ToString();
-                }
-                else
-                {
-                    selectedPattern = patterns.First().Id.ToString(); // الاحتياط في حال عدم وجود الكلمة
-                }
+                selectedPattern = salesPattern != null
+                    ? salesPattern.Id.ToString()
+                    : patterns.First().Id.ToString();
             }
         }
         catch (Exception ex)
         {
-            string friendlyError = GetFriendlyErrorMessage(ex.Message);
-            ShowError("فشل تحميل الأنماط: " + friendlyError);
+            Toasts.Error("فشل تحميل الأنماط: " + GetFriendlyErrorMessage(ex.Message));
+        }
+        finally
+        {
+            isLoadingPatterns = false;
         }
     }
 
-    private async Task DownloadElectricityReport()
+    private RenderFragment DownloadLabel(string key) => __builder =>
     {
-        await DownloadReport(() => Api.DownloadElectricityReportAsync(selectedMonth, selectedYear));
-    }
+        if (busyReport == key)
+        {
+            <span class="spinner"></span>
+            <span>جاري التجهيز</span>
+        }
+        else
+        {
+            <Icon Name="download" Size="16" />
+            <span>تنزيل</span>
+        }
+    };
 
-    private async Task DownloadInvoicesReport()
+    // بعد التنزيل منعرض وقت آخر تنزيل بدل شارة الصيغة - تأكيد بصري إنو العملية تمت
+    private RenderFragment DownloadMeta(string key) => __builder =>
     {
-        await DownloadReport(() => Api.DownloadInvoicesReportAsync(selectedMonth, selectedYear));
-    }
+        if (lastDownloaded.TryGetValue(key, out var at))
+        {
+            <span class="rpt-meta is-done"><Icon Name="check" Size="13" /> @at.ToString("HH:mm")</span>
+        }
+        else
+        {
+            <span class="rpt-meta">XLSX</span>
+        }
+    };
+
+    private Task DownloadElectricityReport()
+        => DownloadReport("electricity", () => Api.DownloadElectricityReportAsync(selectedMonth, selectedYear));
+
+    private Task DownloadInvoicesReport()
+        => DownloadReport("invoices", () => Api.DownloadInvoicesReportAsync(selectedMonth, selectedYear));
 
     private async Task DownloadEttReport()
     {
         if (string.IsNullOrWhiteSpace(selectedPattern))
         {
-            ShowInfo("الرجاء اختيار النمط أولاً قبل تنزيل التقرير.");
+            Toasts.Warning("الرجاء اختيار النمط أولاً قبل تنزيل التقرير.");
             return;
         }
 
         if (startDate > endDate)
         {
-            ShowError("تاريخ البداية لا يمكن أن يكون أكبر من تاريخ النهاية.");
+            Toasts.Error("تاريخ البداية لا يمكن أن يكون أكبر من تاريخ النهاية.");
             return;
         }
 
-        await DownloadReport(() => Api.DownloadEttReportExcelAsync(selectedPattern, startDate, endDate));
+        await DownloadReport("ett", () => Api.DownloadEttReportExcelAsync(selectedPattern, startDate, endDate));
     }
 
-    private async Task DownloadReport(Func<Task<ReportDownloadResult>> request)
+    private async Task DownloadReport(string key, Func<Task<ReportDownloadResult>> request)
     {
         isDownloading = true;
-        message = "";
+        busyReport = key;
 
         try
         {
             var result = await request();
             if (!result.IsSuccess)
             {
-                ShowInfo(result.ErrorMessage ?? "لا يوجد تقرير لهذه البيانات المطابقة.");
+                Toasts.Warning(result.ErrorMessage ?? "لا يوجد تقرير لهذه البيانات المطابقة.");
                 return;
             }
 
             var base64 = Convert.ToBase64String(result.Content!);
             await Js.InvokeVoidAsync("downloadFileFromBytes", result.FileName, result.ContentType, base64);
-            ShowSuccess("تم تجهيز التقرير وتنزيله بنجاح.");
+            lastDownloaded[key] = DateTime.Now;
+            Toasts.Success("تم تجهيز التقرير وتنزيله بنجاح.");
         }
         catch (Exception ex)
         {
-            ShowError(GetFriendlyErrorMessage(ex.Message));
+            Toasts.Error(GetFriendlyErrorMessage(ex.Message));
         }
         finally
         {
             isDownloading = false;
+            busyReport = "";
         }
     }
 
@@ -191,24 +255,6 @@
         }
 
         return errorMessage;
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "alert-success";
-    }
-
-    private void ShowInfo(string text)
-    {
-        message = text;
-        messageCss = "alert-info";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "alert-danger";
     }
 
     private static string MonthName(Months month) => month switch

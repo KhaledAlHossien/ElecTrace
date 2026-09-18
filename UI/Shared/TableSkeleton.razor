@@ -1,0 +1,26 @@
+@* هيكل تحميل متحرك (Shimmer) يحاكي شكل الجدول بدل رسالة "جاري التحميل" الجامدة *@
+
+<div class="skeleton-table">
+    @for (var row = 0; row < Rows; row++)
+    {
+        <div class="skeleton-row" style="--i:@row">
+            @for (var cell = 0; cell < Columns; cell++)
+            {
+                <span class="skeleton-bar" style="width:@Width(cell)"></span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Rows { get; set; } = 6;
+    [Parameter] public int Columns { get; set; } = 5;
+
+    private string Width(int cell) => cell switch
+    {
+        0 => "26%",
+        1 => "16%",
+        2 => "14%",
+        _ => "12%"
+    };
+}

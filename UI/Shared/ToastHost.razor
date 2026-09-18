@@ -1,0 +1,42 @@
+@implements IDisposable
+@inject ToastService Toasts
+
+<div class="toast-host" aria-live="polite">
+    @foreach (var toast in Toasts.Toasts)
+    {
+        <div class="toast-item @LevelCss(toast.Level) @(toast.IsLeaving ? "is-leaving" : "")" @key="toast.Id">
+            <span class="toast-icon">
+                <Icon Name="@LevelIcon(toast.Level)" Size="20" />
+            </span>
+            <p class="toast-text">@toast.Text</p>
+            <button type="button" class="toast-close" title="إغلاق" @onclick="() => Toasts.DismissAsync(toast)">
+                <Icon Name="x" Size="16" />
+            </button>
+            <span class="toast-progress"></span>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Toasts.OnChange += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Toasts.OnChange -= Refresh;
+
+    private static string LevelCss(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "toast-success",
+        ToastLevel.Error => "toast-error",
+        ToastLevel.Warning => "toast-warning",
+        _ => "toast-info"
+    };
+
+    private static string LevelIcon(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "check-circle",
+        ToastLevel.Error => "alert-circle",
+        ToastLevel.Warning => "alert-triangle",
+        _ => "info"
+    };
+}

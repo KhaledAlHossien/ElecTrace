@@ -1,0 +1,63 @@
+@implements IDisposable
+@inject DialogService Dialog
+
+@if (isOpen)
+{
+    <div class="modal-layer @(isClosing ? "is-closing" : "")">
+        <div class="modal-backdrop-blur" @onclick="() => CloseAsync(false)"></div>
+
+        <div class="modal-card" role="dialog" aria-modal="true">
+            <div class="modal-icon @(options.IsDanger ? "danger" : "primary")">
+                <Icon Name="@(options.IsDanger ? "alert-triangle" : "info")" Size="26" />
+            </div>
+
+            <h3 class="modal-title">@options.Title</h3>
+            <p class="modal-message">@options.Message</p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn @(options.IsDanger ? "btn-danger-solid" : "btn-primary")"
+                        @onclick="() => CloseAsync(true)">
+                    <Icon Name="check" Size="17" />
+                    <span>@options.ConfirmText</span>
+                </button>
+                <button type="button" class="btn btn-light" @onclick="() => CloseAsync(false)">
+                    <Icon Name="x" Size="17" />
+                    <span>@options.CancelText</span>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isOpen;
+    private bool isClosing;
+    private ConfirmOptions options = new();
+
+    protected override void OnInitialized() => Dialog.OnOpen += Open;
+
+    public void Dispose() => Dialog.OnOpen -= Open;
+
+    private void Open(ConfirmOptions requested)
+    {
+        options = requested;
+        isClosing = false;
+        isOpen = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CloseAsync(bool result)
+    {
+        if (isClosing)
+            return;
+
+        // حركة خروج قصيرة قبل إزالة النافذة من الشجرة
+        isClosing = true;
+        StateHasChanged();
+        await Task.Delay(180);
+
+        isOpen = false;
+        Dialog.Complete(result);
+        StateHasChanged();
+    }
+}

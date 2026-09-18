@@ -1,31 +1,26 @@
-<div class="top-row ps-3 navbar">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">ElecTrace</a>
-        <button title="فتح القائمة" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+<div class="brand">
+    <div class="brand-mark">
+        <Icon Name="zap" Size="20" />
+    </div>
+    <div class="brand-text">
+        <strong>ElecTrace</strong>
+        <span>إدارة فواتير الكهرباء</span>
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <NavItem Href="" Match="NavLinkMatch.All" Icon="bi-house-door-fill-nav-menu" Text="الرئيسية" />
-        <NavItem Href="departments" Icon="bi-building-nav-menu" Text="الأقسام والعدادات" />
-        <NavItem Href="readings" Icon="bi-speedometer-nav-menu" Text="قراءات الكهرباء" />
-        <NavItem Href="users" Icon="bi-people-nav-menu" Text="المستخدمون" />
-        <NavItem Href="roles" Icon="bi-people-nav-menu" Text="الأدوار" />
-        <NavItem Href="reports" Icon="bi-file-nav-menu" Text="التقارير" />
-        <NavItem Href="settings" Icon="bi-gear-nav-menu" Text="الإعدادات" />
-    </nav>
-</div>
+<nav class="nav-scrollable" @onclick="OnNavigate">
+    <p class="nav-section">المتابعة</p>
+    <NavItem Href="" Match="NavLinkMatch.All" Icon="home" Text="الرئيسية" />
+    <NavItem Href="readings" Icon="zap" Text="قراءات الكهرباء" />
+    <NavItem Href="reports" Icon="file-text" Text="التقارير" />
+
+    <p class="nav-section">الإدارة</p>
+    <NavItem Href="departments" Icon="building" Text="الأقسام والعدادات" />
+    <NavItem Href="users" Icon="users" Text="المستخدمون" />
+    <NavItem Href="roles" Icon="shield" Text="الأدوار" />
+    <NavItem Href="settings" Icon="settings" Text="الإعدادات" />
+</nav>
 
 @code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
+    [Parameter] public EventCallback OnNavigate { get; set; }
 }

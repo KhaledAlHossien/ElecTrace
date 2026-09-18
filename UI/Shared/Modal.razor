@@ -1,0 +1,92 @@
+@* نافذة منبثقة عامة للنماذج - فيها ترويسة وجسم وتذييل، وبتسكّر بالـ Escape أو بالنقر برا *@
+
+@if (render)
+{
+    <div class="dialog-layer @(closing ? "is-closing" : "")" @ref="layerRef" tabindex="-1" @onkeydown="OnKeyDown">
+        <div class="dialog-backdrop" @onclick="RequestCloseAsync"></div>
+
+        <div class="dialog-panel @SizeClass" role="dialog" aria-modal="true" aria-label="@Title">
+            <header class="dialog-head">
+                <div class="dialog-head-text">
+                    <span class="dialog-icon">
+                        <Icon Name="@IconName" Size="19" />
+                    </span>
+                    <div>
+                        <h3>@Title</h3>
+                        @if (!string.IsNullOrWhiteSpace(Subtitle))
+                        {
+                            <p>@Subtitle</p>
+                        }
+                    </div>
+                </div>
+                <button type="button" class="dialog-close" title="إغلاق" @onclick="RequestCloseAsync">
+                    <Icon Name="x" Size="18" />
+                </button>
+            </header>
+
+            <div class="dialog-body">
+                @ChildContent
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Subtitle { get; set; } = "";
+    [Parameter] public string IconName { get; set; } = "plus";
+    [Parameter] public string Size { get; set; } = "md";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool render;
+    private bool closing;
+    private bool shouldFocus;
+    private ElementReference layerRef;
+
+    private string SizeClass => $"dialog-{Size}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && !render)
+        {
+            render = true;
+            closing = false;
+            shouldFocus = true;
+        }
+        else if (!IsOpen && render && !closing)
+        {
+            // حركة خروج قصيرة قبل ما ينشال العنصر من الشجرة
+            closing = true;
+            StateHasChanged();
+            await Task.Delay(170);
+            render = false;
+            closing = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (shouldFocus && render)
+        {
+            shouldFocus = false;
+            // التركيز على الطبقة حتى يشتغل زر Escape
+            await layerRef.FocusAsync();
+        }
+    }
+
+    private async Task RequestCloseAsync()
+    {
+        if (closing)
+            return;
+
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            await RequestCloseAsync();
+    }
+}

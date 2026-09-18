@@ -158,6 +158,22 @@ public class ApiDataService : IApiDataService
     return await PutAsync<SystemInfoResponseDto>($"api/SystemInfo/Update/{id}", request);
   }
 
+  public async Task<AmeenConnectionDto?> GetAmeenConnectionAsync()
+  {
+    using var response = await _httpClient.GetAsync("api/SystemInfo/AmeenConnection");
+    return await ReadAsync<AmeenConnectionDto>(response);
+  }
+
+  public async Task<AmeenConnectionDto?> UpdateAmeenConnectionAsync(UpdateAmeenConnectionRequestDto request)
+  {
+    return await PutAsync<AmeenConnectionDto>("api/SystemInfo/AmeenConnection", request);
+  }
+
+  public async Task<AmeenConnectionTestResultDto?> TestAmeenConnectionAsync(UpdateAmeenConnectionRequestDto request)
+  {
+    return await PostAsync<AmeenConnectionTestResultDto>("api/SystemInfo/AmeenConnection/Test", request);
+  }
+
   public string GetElectricityReportUrl(Months month, int year)
   {
     return new Uri(_httpClient.BaseAddress!, $"api/MeterReading/DownloadElectricityExcelReport?month={month}&year={year}").ToString();

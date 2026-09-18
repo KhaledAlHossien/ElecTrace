@@ -2,144 +2,191 @@
 @attribute [Authorize]
 @inject IApiDataService Api
 @inject IJSRuntime JS
+@inject ToastService Toasts
+@inject DialogService Dialog
 
 <PageTitle>الأقسام والعدادات</PageTitle>
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">إدارة العدادات</p>
+        <p class="eyebrow"><Icon Name="building" Size="13" /> إدارة العدادات</p>
         <h1>الأقسام والعدادات</h1>
-        <p>تعريف الأقسام، رقم العداد، معامل التحويل، الحد الأعلى للعداد، ومبلغ الخصم الثابت.</p>
+        <p>تعريف الأقسام، رقم العداد، معامل التحويل، ومبلغ الخصم الثابت.</p>
     </div>
+    <button class="btn btn-primary" @onclick="OpenCreate">
+        <Icon Name="plus" Size="17" />
+        <span>إضافة قسم</span>
+    </button>
 </section>
 
-<section class="content-grid two-columns">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <h2>@(editingId is null ? "إضافة قسم" : "تعديل قسم")</h2>
-                <p>الحقول هنا تُستخدم بحساب الاستهلاك لاحقاً.</p>
-            </div>
+<section class="panel">
+    <div class="panel-header filter-header">
+        <div>
+            <h2>قائمة الأقسام</h2>
+            <p>@FilteredDepartments.Count() من أصل @departments.Count قسم.</p>
         </div>
+        <div class="filters">
+            <div class="search-wrap">
+                <span class="search-icon"><Icon Name="search" Size="16" /></span>
+                <input class="form-control search-input" placeholder="بحث بالاسم أو رمز العداد..."
+                       @bind="searchText" @bind:event="oninput" />
+            </div>
 
-        <EditForm Model="@form" OnValidSubmit="SaveDepartment">
-            <DataAnnotationsValidator />
-            <div class="form-stack">
+            <label class="btn btn-light" for="fileInput" title="A: اسم القسم — B: عامل الضرب">
+                <Icon Name="upload" Size="16" />
+                <span>استيراد</span>
+            </label>
+            <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
+
+            <button class="btn btn-light" @onclick="ExportToExcel" disabled="@isExporting">
+                @if (isExporting)
+                {
+                    <span class="spinner"></span>
+                }
+                else
+                {
+                    <Icon Name="download" Size="16" />
+                }
+                <span>تصدير</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <TableSkeleton Rows="8" Columns="7" />
+    }
+    else if (!FilteredDepartments.Any())
+    {
+        <EmptyState Title="لا توجد أقسام"
+                    Text="@(string.IsNullOrWhiteSpace(searchText) ? "ابدأ بإضافة أول قسم للنظام." : "لا توجد أقسام مطابقة للبحث.")"
+                    IconName="building">
+            @if (string.IsNullOrWhiteSpace(searchText))
+            {
+                <button class="btn btn-primary btn-sm" @onclick="OpenCreate">
+                    <Icon Name="plus" Size="15" />
+                    <span>إضافة قسم</span>
+                </button>
+            }
+        </EmptyState>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>القسم</th>
+                        <th>رمز العداد</th>
+                        <th>معامل التحويل</th>
+                        <th>الخصم</th>
+                        <th>الحالة</th>
+                        <th>ثابت؟</th>
+                        <th>القيمة الثابتة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var index = 0;
+                    }
+                    @foreach (var department in FilteredDepartments)
+                    {
+                        <tr style="--i:@(index++ % 25)" @key="department.Id">
+                            <td><strong>@department.Name</strong></td>
+                            <td><span class="status-pill neutral">@department.MeterCode</span></td>
+                            <td>@department.ConversionFactor</td>
+                            <td>@department.Discount.ToString("N0") ل.س</td>
+                            <td>
+                                <span class="status-pill @(department.IsActive ? "success" : "danger")">
+                                    <span class="dot"></span>
+                                    @(department.IsActive ? "نشط" : "متوقف")
+                                </span>
+                            </td>
+                            <td>@(department.IsFixed ? "نعم" : "لا")</td>
+                            <td>@department.FixedValue.ToString("N0") ل.س</td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn btn-light" title="تعديل" @onclick="() => OpenEdit(department)">
+                                        <Icon Name="edit" Size="15" />
+                                    </button>
+                                    <button class="btn btn-outline-danger" title="حذف" @onclick="() => DeleteDepartment(department)">
+                                        <Icon Name="trash" Size="15" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<Modal IsOpen="@isFormOpen" OnClose="CloseForm"
+       Title="@(editingId is null ? "إضافة قسم جديد" : "تعديل القسم")"
+       Subtitle="الحقول هنا تُستخدم بحساب الاستهلاك والفواتير."
+       IconName="@(editingId is null ? "plus" : "edit")">
+    <EditForm Model="@form" OnValidSubmit="SaveDepartment">
+        <DataAnnotationsValidator />
+        <div class="form-stack">
+            <div>
+                <label class="form-label">اسم القسم</label>
+                <InputText class="form-control" @bind-Value="form.Name" placeholder="مثال: محل رقم 12" />
+            </div>
+
+            <div class="form-row">
                 <div>
-                    <label class="form-label">اسم القسم</label>
-                    <InputText class="form-control" @bind-Value="form.Name" />
-                </div>
-                <div class="form-row">
-                    <div>
-                        <label class="form-label">معامل التحويل</label>
-                        <InputNumber class="form-control" @bind-Value="form.ConversionFactor" />
-                    </div>
+                    <label class="form-label">معامل التحويل</label>
+                    <InputNumber class="form-control" @bind-Value="form.ConversionFactor" />
                 </div>
                 <div>
                     <label class="form-label">قيمة الخصم (مبلغ ثابت)</label>
                     <InputNumber class="form-control" @bind-Value="form.DiscountAmount" placeholder="0" />
-                    <div class="field-hint">ادخل قيمة الخصم كمبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
                 </div>
-                <div class="form-check">
-                    <InputCheckbox class="form-check-input" @bind-Value="form.IsActive" />
-                    <label class="form-check-label">نشط</label>
+            </div>
+            <div class="field-hint">قيمة الخصم مبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
+
+            <div>
+                <label class="form-label">حالة القسم</label>
+                <div class="switch-row">
+                    <label class="switch-item">
+                        <InputCheckbox class="form-check-input" @bind-Value="form.IsActive" />
+                        <span>نشط</span>
+                    </label>
+                    <label class="switch-item">
+                        <InputCheckbox class="form-check-input" @bind-Value="form.IsFixed" />
+                        <span>اشتراك ثابت</span>
+                    </label>
                 </div>
-                <div class="form-check">
-                    <InputCheckbox class="form-check-input" @bind-Value="form.IsFixed" />
-                    <label class="form-check-label">ثابت</label>
-                </div>
+            </div>
+
+            @if (form.IsFixed)
+            {
                 <div>
                     <label class="form-label">القيمة الثابتة</label>
                     <InputNumber class="form-control" @bind-Value="form.FixedValue" placeholder="0" />
-                    <div class="field-hint">ادخل القيمة كمبلغ مالي مباشر (مثال: 5000). اتركها 0 للافتراضي.</div>
+                    <div class="field-hint">تُحتسب كمبلغ شهري ثابت بدل احتساب الاستهلاك.</div>
                 </div>
+            }
 
-                @if (!string.IsNullOrWhiteSpace(message))
-                {
-                    <div class="alert @messageCss">@message</div>
-                }
-                <div class="button-row">
-                    <button class="btn btn-primary" type="submit" disabled="@isSaving">حفظ</button>
-                    <button class="btn btn-light" type="button" @onclick="ResetForm">تفريغ</button>
-                </div>
-            </div>
-        </EditForm>
-    </div>
-
-    <div class="panel wide-panel">
-        <div class="panel-header">
-            <div>
-                <h2>قائمة الأقسام</h2>
-                <p>@departments.Count قسم مسجل.</p>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-success" @onclick="ExportToExcel" disabled="@isExporting">
-                    @(isExporting ? "جاري التصدير..." : "📊تصدير")
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <Icon Name="save" Size="17" />
+                    }
+                    <span>@(editingId is null ? "إضافة القسم" : "حفظ التعديلات")</span>
                 </button>
+                <button class="btn btn-light" type="button" @onclick="CloseForm">إلغاء</button>
             </div>
-            <div class="filters">
-                <label class="btn btn-outline-primary"
-                       for="fileInput"
-                       title="
-                    A:اسم القسم
-                    B:عامل الضرب
-                    ">
-                    استيراد
-                </label>
-                <InputFile id="fileInput" OnChange="HandleFileSelected" hidden />
-            </div>
-
-            <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
-
         </div>
-
-        @if (isLoading)
-        {
-            <div class="loading-panel">جاري تحميل الأقسام...</div>
-        }
-        else if (!FilteredDepartments.Any())
-        {
-            <EmptyState Text="لا توجد أقسام مطابقة للبحث." />
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>القسم</th>
-                            <th>رمز العداد</th>
-                            <th>معامل التحويل</th>
-                            <th>الخصم</th>
-                            <th>الحالة</th>
-                            <th>ثابت؟</th>
-                            <th>القيمة الثابتة</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var department in FilteredDepartments)
-                        {
-                            <tr>
-                                <td><strong>@department.Name</strong></td>
-                                <td>@department.MeterCode</td>
-                                <td>@department.ConversionFactor</td>
-                                <td>@department.Discount.ToString("N0") ل.س</td>
-                                <td>@(department.IsActive ? "نشط" : "غير نشط")</td>
-                                <td>@(department.IsFixed ? "نعم" : "لا")</td>
-                                <td>@department.FixedValue.ToString("N0") ل.س</td>
-                                <td class="table-actions">
-                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => EditDepartment(department)">تعديل</button>
-                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteDepartment(department.Id)">حذف</button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-</section>
+    </EditForm>
+</Modal>
 
 @code {
     private List<DepartmentResponseDto> departments = [];
@@ -148,9 +195,8 @@
     private bool isLoading = true;
     private bool isSaving;
     private bool isExporting;
+    private bool isFormOpen;
     private string searchText = "";
-    private string message = "";
-    private string messageCss = "alert-success";
 
     private IEnumerable<DepartmentResponseDto> FilteredDepartments =>
         string.IsNullOrWhiteSpace(searchText)
@@ -170,40 +216,14 @@
         isLoading = false;
     }
 
-    private async Task SaveDepartment()
+    private void OpenCreate()
     {
-        isSaving = true;
-        message = "";
-
-        try
-        {
-            if (editingId is int id)
-            {
-                // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
-                ShowSuccess("تم تعديل القسم بنجاح.");
-            }
-            else
-            {
-                // ⚠️ تمرير مبلغ الخصم الثابت هنا
-                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
-                ShowSuccess("تمت إضافة القسم بنجاح.");
-            }
-
-            ResetForm();
-            await LoadDepartments();
-        }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-        finally
-        {
-            isSaving = false;
-        }
+        editingId = null;
+        form = new DepartmentForm();
+        isFormOpen = true;
     }
 
-    private void EditDepartment(DepartmentResponseDto department)
+    private void OpenEdit(DepartmentResponseDto department)
     {
         editingId = department.Id;
         form = new DepartmentForm
@@ -216,19 +236,55 @@
             IsFixed = department.IsFixed,
             FixedValue = department.FixedValue
         };
+        isFormOpen = true;
     }
 
-    private async Task DeleteDepartment(int id)
+    private void CloseForm() => isFormOpen = false;
+
+    private async Task SaveDepartment()
     {
+        isSaving = true;
+
         try
         {
-            await Api.DeleteDepartmentAsync(id);
-            ShowSuccess("تم حذف القسم.");
+            if (editingId is int id)
+            {
+                await Api.UpdateDepartmentAsync(id, new UpdateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
+                Toasts.Success("تم تعديل القسم بنجاح.");
+            }
+            else
+            {
+                await Api.CreateDepartmentAsync(new CreateDepartmentRequestDto(form.Name, form.ConversionFactor, form.MeterCode, form.DiscountAmount, form.IsActive, form.IsFixed, form.FixedValue));
+                Toasts.Success("تمت إضافة القسم بنجاح.");
+            }
+
+            CloseForm();
             await LoadDepartments();
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteDepartment(DepartmentResponseDto department)
+    {
+        if (!await Dialog.ConfirmDeleteAsync(department.Name))
+            return;
+
+        try
+        {
+            await Api.DeleteDepartmentAsync(department.Id);
+            Toasts.Success("تم حذف القسم.");
+            await LoadDepartments();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
         }
     }
 
@@ -240,34 +296,16 @@
             var (content, fileName) = await Api.ExportMeterCodesToExcelAsync();
             using var streamRef = new DotNetStreamReference(new MemoryStream(content));
             await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
-            ShowSuccess("تم تصدير التقرير بنجاح.");
+            Toasts.Success("تم تصدير الملف بنجاح.");
         }
         catch (Exception ex)
         {
-            ShowError("فشل تصدير التقرير: " + ex.Message);
+            Toasts.Error("فشل تصدير الملف: " + ex.Message);
         }
         finally
         {
             isExporting = false;
         }
-    }
-
-    private void ResetForm()
-    {
-        editingId = null;
-        form = new DepartmentForm();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "alert-success";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "alert-danger";
     }
 
     private sealed class DepartmentForm
@@ -290,12 +328,12 @@
         {
             using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
             await Api.ImportDepartmentsAsync(stream);
-            ShowSuccess("تم استيراد البيانات بنجاح.");
+            Toasts.Success("تم استيراد البيانات بنجاح.");
             await LoadDepartments();
         }
         catch (Exception ex)
         {
-            ShowError("فشل الاستيراد: " + ex.Message);
+            Toasts.Error("فشل الاستيراد: " + ex.Message);
         }
         finally { isLoading = false; }
     }

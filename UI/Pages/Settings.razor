@@ -1,18 +1,19 @@
 @page "/settings"
 @attribute [Authorize]
 @inject IApiDataService Api
+@inject ToastService Toasts
 
 <PageTitle>الإعدادات</PageTitle>
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">إعدادات النظام</p>
-        <h1>سعر الكهرباء</h1>
-        <p>تعديل سعر الكيلو واط المستخدم في حساب الفواتير والتقارير.</p>
+        <p class="eyebrow"><Icon Name="settings" Size="13" /> إعدادات النظام</p>
+        <h1>الإعدادات</h1>
+        <p>سعر الكيلو واط المستخدم بالفواتير، واتصال نظام الأمين لتقارير الحركة اليومية.</p>
     </div>
 </section>
 
-<section class="content-grid two-columns">
+<section class="content-grid">
     <div class="panel">
         <div class="panel-header">
             <div>
@@ -21,16 +22,32 @@
             </div>
         </div>
 
+        <div class="price-preview">
+            <span class="price-label">السعر الحالي</span>
+            <strong class="price-value">@form.ElectricityPricePerKwh.ToString("N0") <small>ل.س / ك.و.س</small></strong>
+        </div>
+
         <EditForm Model="@form" OnValidSubmit="SaveSettings">
             <DataAnnotationsValidator />
             <div class="form-stack">
-                <label class="form-label">السعر</label>
-                <InputNumber class="form-control form-control-lg" @bind-Value="form.ElectricityPricePerKwh" />
-                @if (!string.IsNullOrWhiteSpace(message))
-                {
-                    <div class="alert @messageCss">@message</div>
-                }
-                <button class="btn btn-primary" type="submit" disabled="@(isSaving || systemInfoId is null)">حفظ السعر</button>
+                <div>
+                    <label class="form-label">السعر الجديد</label>
+                    <div class="input-icon-wrap">
+                        <span class="input-icon"><Icon Name="wallet" Size="17" /></span>
+                        <InputNumber class="form-control" @bind-Value="form.ElectricityPricePerKwh" />
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit" disabled="@(isSaving || systemInfoId is null)">
+                    @if (isSaving)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <Icon Name="save" Size="17" />
+                    }
+                    <span>حفظ السعر</span>
+                </button>
             </div>
         </EditForm>
     </div>
@@ -38,11 +55,111 @@
     <div class="panel">
         <div class="panel-header">
             <div>
-                <h2>إدارة الأدوار</h2>
-                <p>تم فصل الأدوار بصفحة مستقلة للعرض والتعديل والحذف.</p>
+                <h2>اتصال نظام الأمين</h2>
+                <p>قاعدة البيانات اللي بتتسحب منها تقارير الحركة اليومية.</p>
+            </div>
+            @if (isLoadingConnection)
+            {
+                <span class="status-pill neutral"><span class="spinner" style="width:11px;height:11px;border-width:1.5px;"></span> جاري التحميل</span>
+            }
+            else if (connection?.IsConfigured == true)
+            {
+                <span class="status-pill success"><span class="dot"></span> مضبوط</span>
+            }
+            else
+            {
+                <span class="status-pill warning"><Icon Name="alert-triangle" Size="13" /> غير مضبوط</span>
+            }
+        </div>
+
+        <EditForm Model="@connectionForm" OnValidSubmit="SaveConnection">
+            <div class="form-stack">
+                <div>
+                    <label class="form-label">السيرفر</label>
+                    <InputText class="form-control" @bind-Value="connectionForm.Server" placeholder="SRV1\MSSQL2014" />
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label class="form-label">قاعدة البيانات</label>
+                        <InputText class="form-control" @bind-Value="connectionForm.Database" placeholder="EttPos" />
+                    </div>
+                    <div>
+                        <label class="form-label">اسم المستخدم</label>
+                        <InputText class="form-control" @bind-Value="connectionForm.UserId" placeholder="sa" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label">كلمة المرور</label>
+                    <InputText class="form-control" type="password" @bind-Value="connectionForm.Password"
+                               placeholder="@(connection?.HasPassword == true ? "محفوظة — اتركها فارغة للإبقاء عليها" : "أدخل كلمة المرور")" />
+                    <div class="field-hint">
+                        كلمة المرور المحفوظة ما بترجع للواجهة لأسباب أمنية.
+                        أول اتصال بالسيرفر ممكن ياخد لحد نصف دقيقة، وبعدها بيصير فوري.
+                    </div>
+                </div>
+
+                @if (testResult is not null)
+                {
+                    <div class="alert @(testResult.Success ? "alert-success" : "alert-danger")">
+                        <Icon Name="@(testResult.Success ? "check-circle" : "alert-circle")" Size="17" />
+                        <span>@testResult.Message</span>
+                    </div>
+                }
+
+                <div class="button-row">
+                    <button class="btn btn-primary" type="submit" disabled="@(isSavingConnection || isTesting)">
+                        @if (isSavingConnection)
+                        {
+                            <span class="spinner"></span>
+                        }
+                        else
+                        {
+                            <Icon Name="save" Size="17" />
+                        }
+                        <span>حفظ الاتصال</span>
+                    </button>
+                    <button class="btn btn-light" type="button" @onclick="TestConnection" disabled="@(isSavingConnection || isTesting)">
+                        @if (isTesting)
+                        {
+                            <span class="spinner"></span>
+                        }
+                        else
+                        {
+                            <Icon Name="activity" Size="17" />
+                        }
+                        <span>اختبار الاتصال</span>
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2>روابط الإدارة</h2>
+                <p>إعدادات إضافية موزّعة على صفحات مستقلة.</p>
             </div>
         </div>
-        <a class="btn btn-outline-primary" href="roles">فتح صفحة الأدوار</a>
+        <div class="quick-actions">
+            <a href="roles" style="--i:0">
+                <span class="quick-icon"><Icon Name="shield" Size="17" /></span>
+                <span>إدارة الأدوار والصلاحيات</span>
+                <span class="quick-arrow"><Icon Name="chevron-left" Size="16" /></span>
+            </a>
+            <a href="users" style="--i:1">
+                <span class="quick-icon"><Icon Name="users" Size="17" /></span>
+                <span>إدارة المستخدمين</span>
+                <span class="quick-arrow"><Icon Name="chevron-left" Size="16" /></span>
+            </a>
+            <a href="departments" style="--i:2">
+                <span class="quick-icon"><Icon Name="building" Size="17" /></span>
+                <span>الأقسام والعدادات</span>
+                <span class="quick-arrow"><Icon Name="chevron-left" Size="16" /></span>
+            </a>
+        </div>
     </div>
 </section>
 
@@ -50,8 +167,13 @@
     private SettingsForm form = new();
     private int? systemInfoId;
     private bool isSaving;
-    private string message = "";
-    private string messageCss = "alert-success";
+
+    private AmeenConnectionDto? connection;
+    private ConnectionForm connectionForm = new();
+    private AmeenConnectionTestResultDto? testResult;
+    private bool isLoadingConnection = true;
+    private bool isSavingConnection;
+    private bool isTesting;
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,13 +183,90 @@
             systemInfoId = info.Id;
             form.ElectricityPricePerKwh = info.ElectricityPricePerKwh;
         }
+
+        await LoadConnection();
+    }
+
+    private async Task LoadConnection()
+    {
+        isLoadingConnection = true;
+        try
+        {
+            connection = await Api.GetAmeenConnectionAsync();
+            if (connection is not null)
+            {
+                connectionForm = new ConnectionForm
+                {
+                    Server = connection.Server,
+                    Database = connection.Database,
+                    UserId = connection.UserId
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error("تعذّر تحميل إعدادات اتصال الأمين: " + ex.Message);
+        }
+        finally
+        {
+            isLoadingConnection = false;
+        }
+    }
+
+    private UpdateAmeenConnectionRequestDto BuildRequest() =>
+        new(connectionForm.Server, connectionForm.Database, connectionForm.UserId, connectionForm.Password);
+
+    private async Task SaveConnection()
+    {
+        isSavingConnection = true;
+        testResult = null;
+        try
+        {
+            connection = await Api.UpdateAmeenConnectionAsync(BuildRequest());
+            connectionForm.Password = "";
+            Toasts.Success("تم حفظ اتصال نظام الأمين.");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            isSavingConnection = false;
+        }
+    }
+
+    private async Task TestConnection()
+    {
+        isTesting = true;
+        testResult = null;
+        try
+        {
+            testResult = await Api.TestAmeenConnectionAsync(BuildRequest());
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+        finally
+        {
+            isTesting = false;
+        }
+    }
+
+    private sealed class ConnectionForm
+    {
+        public string Server { get; set; } = "";
+        public string Database { get; set; } = "";
+        public string UserId { get; set; } = "";
+        public string Password { get; set; } = "";
     }
 
     private async Task SaveSettings()
     {
         if (systemInfoId is not int id)
         {
-            ShowError("لم يتم العثور على إعدادات النظام.");
+            Toasts.Error("لم يتم العثور على إعدادات النظام.");
             return;
         }
 
@@ -75,28 +274,16 @@
         try
         {
             await Api.UpdateSystemInfoAsync(id, new UpdateSystemInfoRequestDto(form.ElectricityPricePerKwh));
-            ShowSuccess("تم حفظ سعر الكهرباء.");
+            Toasts.Success("تم حفظ سعر الكهرباء.");
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            Toasts.Error(ex.Message);
         }
         finally
         {
             isSaving = false;
         }
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "alert-success";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "alert-danger";
     }
 
     private sealed class SettingsForm

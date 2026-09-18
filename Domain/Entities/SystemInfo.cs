@@ -8,5 +8,8 @@ namespace Domain.Entities
     {
         public int Id { get; set; }
         public decimal ElectricityPricePerKwh { get; set; }
+
+        // سلسلة الاتصال بقاعدة بيانات نظام الأمين (تقارير الحركة اليومية)
+        public string? AmeenConnectionString { get; set; }
     }
 }

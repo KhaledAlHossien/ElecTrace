@@ -1,21 +1,20 @@
 ﻿using Application_Contract.DTOs.Pattern;
+using Application_Contract.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Globalization;
-using System.Text.Json;
 
 namespace Infrastructure.Servicies.ETT
 {
     public class ETTService
     {
-        private readonly string _connectionString;
+        private readonly IAmeenConnectionService _ameenConnection;
         private readonly string _reportQuery;
 
-        public ETTService(IConfiguration configuration)
+        public ETTService(IAmeenConnectionService ameenConnection)
         {
-            _connectionString = GetConnectionString();
+            _ameenConnection = ameenConnection;
 
             string sqlPath = Path.Combine(
                 AppContext.BaseDirectory,
@@ -29,28 +28,10 @@ namespace Infrastructure.Servicies.ETT
             _reportQuery = File.ReadAllText(sqlPath);
         }
 
-        private class DatabaseConfig
+        // الاتصال بيتقرأ من SystemInfo عند كل عملية، فأي تعديل من الواجهة بيسري فوراً بدون إعادة تشغيل
+        private SqlConnection OpenConnection()
         {
-            public string ConnectionString { get; set; } = "";
-        }
-
-        private static string GetConnectionString()
-        {
-            string path = Path.Combine(
-                AppContext.BaseDirectory,
-                "Config",
-                "AmeenDatabase.config");
-
-            if (!File.Exists(path))
-                throw new FileNotFoundException(
-                    $"Connection file not found: {path}");
-
-            string json = File.ReadAllText(path);
-
-            DatabaseConfig config =
-                JsonSerializer.Deserialize<DatabaseConfig>(json)!;
-
-            return config.ConnectionString;
+            return new SqlConnection(_ameenConnection.GetConnectionString());
         }
 
         public DataTable GetReport(
@@ -60,8 +41,7 @@ namespace Infrastructure.Servicies.ETT
         {
             DataTable dt = new DataTable();
 
-            using SqlConnection conn =
-                new SqlConnection(_connectionString);
+            using SqlConnection conn = OpenConnection();
 
             using SqlCommand cmd =
                 new SqlCommand(_reportQuery, conn);
@@ -84,8 +64,7 @@ namespace Infrastructure.Servicies.ETT
         {
             var result = new List<PatternDto>();
 
-            using SqlConnection conn =
-                new SqlConnection(_connectionString);
+            using SqlConnection conn = OpenConnection();
 
             const string sql = @"
                 SELECT Guid, Name
@@ -125,8 +104,8 @@ namespace Infrastructure.Servicies.ETT
             ws.RightToLeft = true;
             ws.ShowGridLines = false;
 
-            // جعل الخط الافتراضي لكامل التقرير 16
-            ws.Style.Font.FontSize = 16;
+            // جعل الخط الافتراضي لكامل التقرير 18 (المواد/البيانات)
+            ws.Style.Font.FontSize = 18;
 
             int row = 1;
 
@@ -161,6 +140,7 @@ namespace Infrastructure.Servicies.ETT
 
                             ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                             ws.Range(row, 7, row, 9).Style.Font.Bold = true;
+                            ws.Range(row, 7, row, 9).Style.Font.FontSize = 20;
                             ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
                             ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                             row++;
@@ -171,7 +151,7 @@ namespace Infrastructure.Servicies.ETT
 
                         ws.Range(row, 1, row, 6).Merge().Value = $"المجموع الإجمالي للزبون: {currentCustomer}";
                         ws.Range(row, 1, row, 6).Style.Font.Bold = true;
-                        ws.Range(row, 1, row, 6).Style.Font.FontSize = 18;
+                        ws.Range(row, 1, row, 6).Style.Font.FontSize = 20;
                         ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
 
                         // التقريب لأقرب 10
@@ -179,7 +159,7 @@ namespace Infrastructure.Servicies.ETT
 
                         ws.Range(row, 7, row, 9).Merge().Value = roundedTotal;
                         ws.Range(row, 7, row, 9).Style.Font.Bold = true;
-                        ws.Range(row, 7, row, 9).Style.Font.FontSize = 18;
+                        ws.Range(row, 7, row, 9).Style.Font.FontSize = 20;
                         ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
                         ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                         row++;
@@ -213,17 +193,20 @@ namespace Infrastructure.Servicies.ETT
 
                     ws.Cell(row, 1).Value = customer;
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
+                    ws.Range(row, 1, row, 6).Style.Font.FontSize = 20;
                     ws.Range(row, 1, row, 6).Style.Font.FontColor = XLColor.DarkRed;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
                     ws.Cell(row, 1).Value = "الحركة اليومية - تفصيلي";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
+                    ws.Range(row, 1, row, 6).Style.Font.FontSize = 20;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
                     ws.Cell(row, 1).Value = $"اعتباراً من {fromDate.ToString("dd/MM/yyyy", englishCulture)} ولغاية {toDate.ToString("dd/MM/yyyy", englishCulture)}";
                     ws.Range(row, 1, row, 6).Merge().Style.Font.Bold = true;
+                    ws.Range(row, 1, row, 6).Style.Font.FontSize = 20;
                     ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F3F4");
                     row++;
 
@@ -233,6 +216,7 @@ namespace Infrastructure.Servicies.ETT
                     {
                         ws.Cell(row, i + 1).Value = headers[i];
                         ws.Cell(row, i + 1).Style.Font.Bold = true;
+                        ws.Cell(row, i + 1).Style.Font.FontSize = 20;
                         ws.Cell(row, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#E5E8E8");
                     }
                     row++;
@@ -247,6 +231,7 @@ namespace Infrastructure.Servicies.ETT
 
                         ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                         ws.Range(row, 7, row, 9).Style.Font.Bold = true;
+                        ws.Range(row, 7, row, 9).Style.Font.FontSize = 20;
                         ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
                         ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                         row++;
@@ -294,6 +279,7 @@ namespace Infrastructure.Servicies.ETT
 
                     ws.Range(row, 7, row, 9).Merge().Value = Convert.ToDouble(billTotal);
                     ws.Range(row, 7, row, 9).Style.Font.Bold = true;
+                    ws.Range(row, 7, row, 9).Style.Font.FontSize = 20;
                     ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#F4D03F");
                     ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                     row++;
@@ -303,7 +289,7 @@ namespace Infrastructure.Servicies.ETT
 
                 ws.Range(row, 1, row, 6).Merge().Value = $"المجموع الإجمالي للزبون: {currentCustomer}";
                 ws.Range(row, 1, row, 6).Style.Font.Bold = true;
-                ws.Range(row, 1, row, 6).Style.Font.FontSize = 18;
+                ws.Range(row, 1, row, 6).Style.Font.FontSize = 20;
                 ws.Range(row, 1, row, 6).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
 
                 // التقريب لأقرب 10
@@ -311,7 +297,7 @@ namespace Infrastructure.Servicies.ETT
 
                 ws.Range(row, 7, row, 9).Merge().Value = roundedTotal;
                 ws.Range(row, 7, row, 9).Style.Font.Bold = true;
-                ws.Range(row, 7, row, 9).Style.Font.FontSize = 18;
+                ws.Range(row, 7, row, 9).Style.Font.FontSize = 20;
                 ws.Range(row, 7, row, 9).Style.Fill.BackgroundColor = XLColor.FromHtml("#D5F5E3");
                 ws.Range(row, 7, row, 9).Style.NumberFormat.Format = "#,##0";
                 row++;

@@ -1,91 +1,128 @@
 @page "/roles"
 @attribute [Authorize]
 @inject IApiDataService Api
+@inject ToastService Toasts
+@inject DialogService Dialog
 
 <PageTitle>الأدوار</PageTitle>
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">إدارة الصلاحيات</p>
+        <p class="eyebrow"><Icon Name="shield" Size="13" /> إدارة الصلاحيات</p>
         <h1>الأدوار</h1>
-        <p>إنشاء وعرض وتعديل وحذف الأدوار المستخدمة عند تعريف المستخدمين.</p>
+        <p>الأدوار المستخدمة عند تعريف المستخدمين وتحديد صلاحياتهم.</p>
     </div>
+    <button class="btn btn-primary" @onclick="OpenCreate">
+        <Icon Name="plus" Size="17" />
+        <span>إضافة دور</span>
+    </button>
 </section>
 
-<section class="content-grid two-columns">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <h2>@(editingId is null ? "إضافة دور" : "تعديل دور")</h2>
-                <p>اكتب اسم الدور بشكل واضح مثل Admin أو User.</p>
-            </div>
+<section class="panel">
+    <div class="panel-header filter-header">
+        <div>
+            <h2>قائمة الأدوار</h2>
+            <p>@FilteredRoles.Count() من أصل @roles.Count دور.</p>
         </div>
-
-        <EditForm Model="@form" OnValidSubmit="SaveRole">
-            <DataAnnotationsValidator />
-            <div class="form-stack">
-                <div>
-                    <label class="form-label">اسم الدور</label>
-                    <InputText class="form-control" @bind-Value="form.Name" />
-                </div>
-                @if (!string.IsNullOrWhiteSpace(message))
-                {
-                    <div class="alert @messageCss">@message</div>
-                }
-                <div class="button-row">
-                    <button class="btn btn-primary" type="submit" disabled="@isSaving">حفظ</button>
-                    <button class="btn btn-light" type="button" @onclick="ResetForm">تفريغ</button>
-                </div>
-            </div>
-        </EditForm>
-    </div>
-
-    <div class="panel wide-panel">
-        <div class="panel-header">
-            <div>
-                <h2>قائمة الأدوار</h2>
-                <p>@roles.Count دور مسجل.</p>
-            </div>
+        <div class="search-wrap">
+            <span class="search-icon"><Icon Name="search" Size="16" /></span>
             <input class="form-control search-input" placeholder="بحث..." @bind="searchText" @bind:event="oninput" />
         </div>
-
-        @if (isLoading)
-        {
-            <div class="loading-panel">جاري تحميل الأدوار...</div>
-        }
-        else if (!FilteredRoles.Any())
-        {
-            <EmptyState Text="لا توجد أدوار مطابقة." />
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>الدور</th>
-                            <th>المعرف</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var role in FilteredRoles)
-                        {
-                            <tr>
-                                <td><strong>@role.Name</strong></td>
-                                <td>@role.Id</td>
-                                <td class="table-actions">
-                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => EditRole(role)">تعديل</button>
-                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteRole(role.Id)">حذف</button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
     </div>
+
+    @if (isLoading)
+    {
+        <TableSkeleton Rows="5" Columns="3" />
+    }
+    else if (!FilteredRoles.Any())
+    {
+        <EmptyState Title="لا توجد أدوار"
+                    Text="@(string.IsNullOrWhiteSpace(searchText) ? "أضف أول دور للنظام." : "لا توجد أدوار مطابقة.")"
+                    IconName="shield">
+            @if (string.IsNullOrWhiteSpace(searchText))
+            {
+                <button class="btn btn-primary btn-sm" @onclick="OpenCreate">
+                    <Icon Name="plus" Size="15" />
+                    <span>إضافة دور</span>
+                </button>
+            }
+        </EmptyState>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>الدور</th>
+                        <th>المعرف</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var index = 0;
+                    }
+                    @foreach (var role in FilteredRoles)
+                    {
+                        <tr style="--i:@(index++ % 25)" @key="role.Id">
+                            <td>
+                                <div class="cell-user">
+                                    <span class="cell-avatar accent"><Icon Name="shield" Size="15" /></span>
+                                    <strong>@role.Name</strong>
+                                </div>
+                            </td>
+                            <td><span class="status-pill neutral">#@role.Id</span></td>
+                            <td>
+                                <div class="table-actions">
+                                    <button class="btn btn-light" title="تعديل" @onclick="() => OpenEdit(role)">
+                                        <Icon Name="edit" Size="15" />
+                                    </button>
+                                    <button class="btn btn-outline-danger" title="حذف" @onclick="() => DeleteRole(role)">
+                                        <Icon Name="trash" Size="15" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </section>
+
+<Modal IsOpen="@isFormOpen" OnClose="CloseForm" Size="sm"
+       Title="@(editingId is null ? "إضافة دور جديد" : "تعديل الدور")"
+       Subtitle="اكتب اسم الدور بشكل واضح مثل Admin أو User."
+       IconName="@(editingId is null ? "plus" : "edit")">
+    <EditForm Model="@form" OnValidSubmit="SaveRole">
+        <DataAnnotationsValidator />
+        <div class="form-stack">
+            <div>
+                <label class="form-label">اسم الدور</label>
+                <div class="input-icon-wrap">
+                    <span class="input-icon"><Icon Name="shield" Size="17" /></span>
+                    <InputText class="form-control" @bind-Value="form.Name" placeholder="Admin" />
+                </div>
+            </div>
+
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <Icon Name="save" Size="17" />
+                    }
+                    <span>@(editingId is null ? "إضافة الدور" : "حفظ التعديلات")</span>
+                </button>
+                <button class="btn btn-light" type="button" @onclick="CloseForm">إلغاء</button>
+            </div>
+        </div>
+    </EditForm>
+</Modal>
 
 @code {
     private List<RoleResponseDto> roles = [];
@@ -93,9 +130,8 @@
     private int? editingId;
     private bool isLoading = true;
     private bool isSaving;
+    private bool isFormOpen;
     private string searchText = "";
-    private string message = "";
-    private string messageCss = "alert-success";
 
     private IEnumerable<RoleResponseDto> FilteredRoles =>
         string.IsNullOrWhiteSpace(searchText)
@@ -114,11 +150,27 @@
         isLoading = false;
     }
 
+    private void OpenCreate()
+    {
+        editingId = null;
+        form = new RoleRequestDto { Name = "" };
+        isFormOpen = true;
+    }
+
+    private void OpenEdit(RoleResponseDto role)
+    {
+        editingId = role.Id;
+        form = new RoleRequestDto { Name = role.Name };
+        isFormOpen = true;
+    }
+
+    private void CloseForm() => isFormOpen = false;
+
     private async Task SaveRole()
     {
         if (string.IsNullOrWhiteSpace(form.Name))
         {
-            ShowError("اسم الدور مطلوب.");
+            Toasts.Warning("اسم الدور مطلوب.");
             return;
         }
 
@@ -128,20 +180,20 @@
             if (editingId is int id)
             {
                 await Api.UpdateRoleAsync(id, form);
-                ShowSuccess("تم تعديل الدور.");
+                Toasts.Success("تم تعديل الدور.");
             }
             else
             {
                 await Api.CreateRoleAsync(form);
-                ShowSuccess("تم إنشاء الدور.");
+                Toasts.Success("تم إنشاء الدور.");
             }
 
-            ResetForm();
+            CloseForm();
             await LoadRoles();
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            Toasts.Error(ex.Message);
         }
         finally
         {
@@ -149,41 +201,20 @@
         }
     }
 
-    private void EditRole(RoleResponseDto role)
+    private async Task DeleteRole(RoleResponseDto role)
     {
-        editingId = role.Id;
-        form = new RoleRequestDto { Name = role.Name };
-    }
+        if (!await Dialog.ConfirmDeleteAsync(role.Name))
+            return;
 
-    private async Task DeleteRole(int id)
-    {
         try
         {
-            await Api.DeleteRoleAsync(id);
-            ShowSuccess("تم حذف الدور.");
+            await Api.DeleteRoleAsync(role.Id);
+            Toasts.Success("تم حذف الدور.");
             await LoadRoles();
         }
         catch (Exception ex)
         {
-            ShowError(ex.Message);
+            Toasts.Error(ex.Message);
         }
-    }
-
-    private void ResetForm()
-    {
-        editingId = null;
-        form = new RoleRequestDto { Name = "" };
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "alert-success";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "alert-danger";
     }
 }

@@ -37,6 +37,10 @@ public interface IApiDataService
   Task<List<SystemInfoResponseDto>> GetSystemInfoAsync();
   Task<SystemInfoResponseDto?> UpdateSystemInfoAsync(int id, UpdateSystemInfoRequestDto request);
 
+  Task<AmeenConnectionDto?> GetAmeenConnectionAsync();
+  Task<AmeenConnectionDto?> UpdateAmeenConnectionAsync(UpdateAmeenConnectionRequestDto request);
+  Task<AmeenConnectionTestResultDto?> TestAmeenConnectionAsync(UpdateAmeenConnectionRequestDto request);
+
   string GetElectricityReportUrl(Months month, int year);
   string GetInvoicesReportUrl(Months month, int year);
   Task<ReportDownloadResult> DownloadElectricityReportAsync(Months month, int year);

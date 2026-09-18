@@ -1,53 +1,208 @@
 @using Blazored.LocalStorage
 @inherits LayoutComponentBase
+@implements IDisposable
 
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthProvider
 @inject ILocalStorageService LocalStorage
+@inject IJSRuntime JS
 
-<div class="page" dir="rtl">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="shell" dir="rtl">
+    @if (isMobileNavOpen)
+    {
+        <div class="sidebar-backdrop" @onclick="CloseMobileNav"></div>
+    }
 
-    <main>
-        <div class="top-row px-4">
-            <div>
-                <span class="top-row-title">نظام فواتير الكهرباء</span>
-                <span class="top-row-subtitle">متابعة العدادات والاستهلاك والتقارير</span>
+    <aside class="sidebar @(isCollapsed ? "collapsed" : "") @(isMobileNavOpen ? "mobile-open" : "")">
+        <button type="button" class="collapse-btn" title="طي / توسيع القائمة" @onclick="ToggleCollapse">
+            <Icon Name="chevron-right" Size="18" CssClass="collapse-chevron" />
+        </button>
+        <NavMenu OnNavigate="CloseMobileNav" />
+    </aside>
+
+    <main class="workspace">
+        <header class="topbar">
+            <div class="topbar-start">
+                <button type="button" class="icon-btn mobile-nav-toggle" title="القائمة" @onclick="ToggleMobileNav">
+                    <Icon Name="menu" Size="20" />
+                </button>
+
+                <nav class="crumbs" aria-label="المسار">
+                    <Icon Name="home" Size="15" />
+                    <span class="crumb-sep">/</span>
+                    <span class="crumb-current">@CurrentPageTitle()</span>
+                </nav>
             </div>
-            <AuthorizeView>
-                <Authorized>
-                    <div class="user-chip">
-                        <span>@displayName</span>
-                        <button class="btn btn-outline-danger btn-sm" @onclick="Logout">خروج</button>
-                    </div>
-                </Authorized>
-            </AuthorizeView>
-        </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
+            <div class="topbar-end">
+                <span class="date-chip">
+                    <Icon Name="calendar" Size="15" />
+                    @DateTime.Now.ToString("dd/MM/yyyy")
+                </span>
+
+                <button type="button" class="theme-toggle" @onclick="ToggleTheme"
+                        title="@(isDark ? "التبديل للوضع النهاري" : "التبديل للوضع الليلي")">
+                    @if (isDark)
+                    {
+                        <Icon Name="sun" Size="18" @key="'d'" />
+                    }
+                    else
+                    {
+                        <Icon Name="moon" Size="18" @key="'l'" />
+                    }
+                </button>
+
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="user-menu">
+                            <button type="button" class="avatar-btn @(isUserMenuOpen ? "active" : "")"
+                                    title="حسابي" @onclick="ToggleUserMenu">
+                                @Initials
+                            </button>
+
+                            @if (isUserMenuOpen)
+                            {
+                                <div class="menu-backdrop" @onclick="CloseUserMenu"></div>
+                                <div class="user-dropdown">
+                                    <div class="user-dropdown-head">
+                                        <div class="avatar-lg">@Initials</div>
+                                        <div class="user-dropdown-id">
+                                            <strong>@displayName</strong>
+                                            <small>@userName</small>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown-sep"></div>
+                                    <button type="button" class="dropdown-link danger" @onclick="Logout">
+                                        <Icon Name="log-out" Size="17" />
+                                        <span>تسجيل الخروج</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+
+            @if (isNavigating)
+            {
+                <span class="route-progress"></span>
+            }
+        </header>
+
+        <section class="content-surface">
+            <div class="page-enter" @key="currentUrl">
+                @Body
+            </div>
+        </section>
     </main>
 </div>
 
+<ToastHost />
+<ConfirmDialog />
+
 @code {
+    private const string CollapseKey = "sidebarCollapsed";
+
     private string displayName = "مستخدم";
+    private string userName = "";
+    private string currentUrl = "";
+
+    private bool isCollapsed;
+    private bool isMobileNavOpen;
+    private bool isUserMenuOpen;
+    private bool isNavigating;
+    private bool isDark;
+
+    private string Initials
+    {
+        get
+        {
+            var source = string.IsNullOrWhiteSpace(displayName) ? userName : displayName;
+            if (string.IsNullOrWhiteSpace(source))
+                return "؟";
+
+            var parts = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2
+                ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+                : source[..Math.Min(2, source.Length)].ToUpperInvariant();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        currentUrl = Navigation.Uri;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         displayName = await LocalStorage.GetItemAsync<string>("fullName")
             ?? await LocalStorage.GetItemAsync<string>("userName")
             ?? "مستخدم";
+        userName = await LocalStorage.GetItemAsync<string>("userName") ?? "";
+        isCollapsed = await LocalStorage.GetItemAsync<bool>(CollapseKey);
+
+        // الثيم متطبّق أصلاً من سكربت index.html قبل الرسم، هون بس منقرأ حالته لنعرض الأيقونة الصح
+        isDark = await JS.InvokeAsync<string>("appTheme.current") == "dark";
+    }
+
+    private async Task ToggleTheme()
+    {
+        var theme = await JS.InvokeAsync<string>("appTheme.toggle");
+        isDark = theme == "dark";
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        currentUrl = e.Location;
+        isMobileNavOpen = false;
+        isUserMenuOpen = false;
+
+        // شريط تقدم رفيع أعلى الصفحة يعطي إحساس بالانتقال بين الصفحات
+        isNavigating = true;
+        StateHasChanged();
+        await Task.Delay(550);
+        isNavigating = false;
+        StateHasChanged();
+    }
+
+    private async Task ToggleCollapse()
+    {
+        isCollapsed = !isCollapsed;
+        await LocalStorage.SetItemAsync(CollapseKey, isCollapsed);
+    }
+
+    private void ToggleMobileNav() => isMobileNavOpen = !isMobileNavOpen;
+    private void CloseMobileNav() => isMobileNavOpen = false;
+    private void ToggleUserMenu() => isUserMenuOpen = !isUserMenuOpen;
+    private void CloseUserMenu() => isUserMenuOpen = false;
+
+    private string CurrentPageTitle()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+
+        return path switch
+        {
+            "" or "/" => "لوحة المتابعة",
+            "/departments" => "الأقسام والعدادات",
+            "/readings" => "قراءات الكهرباء",
+            "/users" => "المستخدمون",
+            "/roles" => "الأدوار",
+            "/reports" => "التقارير",
+            "/settings" => "الإعدادات",
+            _ => "لوحة المتابعة"
+        };
     }
 
     private async Task Logout()
     {
+        isUserMenuOpen = false;
         await AuthService.LogoutAsync();
         var customProvider = AuthProvider as CustomAuthStateProvider;
         customProvider?.NotifyUserLogout();
         Navigation.NavigateTo("/login", true);
     }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 }
