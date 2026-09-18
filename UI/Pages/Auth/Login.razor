@@ -8,44 +8,72 @@
 
 <PageTitle>تسجيل الدخول</PageTitle>
 
+<span class="login-orb login-orb-1"></span>
+<span class="login-orb login-orb-2"></span>
+
 <section class="login-panel">
     <div class="login-copy">
-        <span class="brand-mark">ET</span>
-        <p class="eyebrow">ElecTrace</p>
+        <div class="brand-mark-lg">
+            <Icon Name="zap" Size="26" />
+        </div>
+        <p class="eyebrow"><Icon Name="sparkles" Size="13" /> ElecTrace</p>
         <h1>إدارة فواتير الكهرباء من مكان واحد</h1>
         <p>سجل القراءات، راقب الاستهلاك، وحمّل التقارير الشهرية بسرعة ووضوح.</p>
+
+        <div class="login-features">
+            <span class="login-feature" style="--i:0"><Icon Name="gauge" Size="15" /> قراءات دقيقة</span>
+            <span class="login-feature" style="--i:1"><Icon Name="file-text" Size="15" /> تقارير Excel</span>
+            <span class="login-feature" style="--i:2"><Icon Name="shield" Size="15" /> صلاحيات وأدوار</span>
+        </div>
     </div>
 
     <div class="login-card">
-        <h2>تسجيل الدخول</h2>
-        <p>أدخل بيانات حسابك للمتابعة إلى لوحة التحكم.</p>
+        <div class="login-logo">
+            <Icon Name="user" Size="24" />
+        </div>
+        <h2 style="text-align:center;">تسجيل الدخول</h2>
+        <p style="text-align:center;">أدخل بيانات حسابك للمتابعة إلى لوحة التحكم.</p>
+
         <EditForm Model="@formModel" OnValidSubmit="@HandleLogin">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" />
 
-            <div class="mb-3">
-                <label for="username" class="form-label">اسم المستخدم</label>
-                <InputText id="username" class="form-control form-control-lg" @bind-Value="formModel.UserName" />
+            <div class="login-field" style="--i:0">
+                <label class="form-label" for="username">اسم المستخدم</label>
+                <div class="input-icon-wrap">
+                    <span class="input-icon"><Icon Name="user" Size="17" /></span>
+                    <InputText id="username" class="form-control" @bind-Value="formModel.UserName" placeholder="اسم المستخدم" />
+                </div>
                 <ValidationMessage For="@(() => formModel.UserName)" />
             </div>
 
-            <div class="mb-3">
-                <label for="password" class="form-label">كلمة المرور</label>
-                <InputText id="password" type="password" class="form-control form-control-lg" @bind-Value="formModel.Password" />
+            <div class="login-field" style="--i:1">
+                <label class="form-label" for="password">كلمة المرور</label>
+                <div class="input-icon-wrap">
+                    <span class="input-icon"><Icon Name="shield" Size="17" /></span>
+                    <InputText id="password" type="password" class="form-control" @bind-Value="formModel.Password" placeholder="••••••••" />
+                </div>
                 <ValidationMessage For="@(() => formModel.Password)" />
             </div>
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <div class="alert alert-danger">@errorMessage</div>
+                <div class="alert alert-danger">
+                    <Icon Name="alert-circle" Size="17" />
+                    <span>@errorMessage</span>
+                </div>
             }
 
-            <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@isLoading">
+            <button type="submit" class="btn btn-primary login-submit" disabled="@isLoading">
                 @if (isLoading)
                 {
-                    <span class="spinner-border spinner-border-sm ms-2"></span>
+                    <span class="spinner"></span>
+                    <span>جاري التحقق...</span>
                 }
-                دخول
+                else
+                {
+                    <Icon Name="log-out" Size="18" />
+                    <span>دخول</span>
+                }
             </button>
         </EditForm>
     </div>

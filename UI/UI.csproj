@@ -20,4 +20,10 @@
     <ProjectReference Include="..\Application Contract\Application Contract.csproj" />
   </ItemGroup>
 
+  <!-- حزمة Blazor WASM بتكتشف web.config المخصص (فبتوقف توليد الافتراضي) بس بتعلّمه "Never" بالنشر،
+       فمننسخه يدوياً بعد النشر حتى تطلع إعدادات IIS (MIME + توجيه + منع الكاش) مع الملفات -->
+  <Target Name="CopyIisWebConfigToPublish" AfterTargets="Publish">
+    <Copy SourceFiles="web.config" DestinationFolder="$(PublishDir)" />
+  </Target>
+
 </Project>

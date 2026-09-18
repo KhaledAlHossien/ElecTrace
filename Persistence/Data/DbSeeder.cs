@@ -1,7 +1,9 @@
 ﻿using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using static BCrypt.Net.BCrypt;
 
@@ -17,7 +19,8 @@ namespace Persistence.Data
             {
                 context.SystemInfos.Add(new SystemInfo
                 {
-                    ElectricityPricePerKwh = 1000
+                    ElectricityPricePerKwh = 1000,
+                    AmeenConnectionString = "Server=SRV1\\MSSQL2014;Database=EttPos;User Id=sa;Password=123456;TrustServerCertificate=True"
                 });
                 await context.SaveChangesAsync();
             }

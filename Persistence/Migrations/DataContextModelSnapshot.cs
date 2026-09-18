@@ -150,6 +150,9 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AmeenConnectionString")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("ElectricityPricePerKwh")
                         .HasColumnType("decimal(18,2)");
 

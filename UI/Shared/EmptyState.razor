@@ -1,8 +1,18 @@
 <div class="empty-state">
-    <strong>لا توجد بيانات</strong>
+    <div class="empty-icon">
+        <Icon Name="@IconName" Size="30" />
+    </div>
+    <strong>@Title</strong>
     <span>@Text</span>
+    @if (ChildContent is not null)
+    {
+        <div class="empty-actions">@ChildContent</div>
+    }
 </div>
 
 @code {
+    [Parameter] public string Title { get; set; } = "لا توجد بيانات";
     [Parameter] public string Text { get; set; } = "لا توجد سجلات مطابقة.";
+    [Parameter] public string IconName { get; set; } = "inbox";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
 }
