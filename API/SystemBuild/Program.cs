@@ -7,16 +7,26 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. تسجيل الخدمات
 builder.Services.AddApiRegistrationServices(builder.Configuration);
 
-// 2. إعداد سياسة CORS بشكل صحيح (يجب تحديد الـ Origin عند استخدام AllowCredentials)
+// 2. إعداد سياسة CORS
+// المصادقة عن طريق Bearer token (مو كوكيز)، فما في حاجة لـ AllowCredentials.
+// افتراضياً بنسمح لأي مصدر؛ ولتقييدها حط روابط الواجهة بـ Cors:AllowedOrigins داخل appsettings.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazor", policy =>
     {
-        policy.AllowAnyOrigin() // رابط الـ UI الخاص بك
-                                //  policy.WithOrigins(builder.Configuration["UIBaseUrl"])
-        .AllowAnyHeader()
-             .AllowAnyMethod();
-            //  .AllowCredentials();
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
+        if (allowedOrigins is { Length: > 0 })
+        {
+            policy.WithOrigins(allowedOrigins);
+        }
+        else
+        {
+            policy.AllowAnyOrigin();
+        }
+
+        policy.AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 

@@ -3,11 +3,9 @@ namespace API.SystemBuild
 {
     public static class ApplicationPipeline
     {
-        public static IApplicationBuilder UseApplicationPipeline(this IApplicationBuilder app)
+        public static IApplicationBuilder UseApplicationPipeline(this WebApplication app)
         {
             app.UseMiddleware<ExceptionMiddleware>();
-
-            app.UseCors("AllowBlazor");
 
             app.UseSwagger();
             app.UseSwaggerUI(c =>
@@ -16,12 +14,15 @@ namespace API.SystemBuild
                 c.DocumentTitle = "ElicTrace";
             });
 
-            app.UseHttpsRedirection();
+            // على IIS بدون شهادة HTTPS، التحويل الإجباري بيرجّع 307 لعنوان https مسكّر فتفشل طلبات الواجهة
+            // وتظهر كأنها مشكلة CORS. فمنخليه اختياري من appsettings.
+            if (app.Configuration.GetValue<bool>("UseHttpsRedirection"))
+            {
+                app.UseHttpsRedirection();
+            }
+
             app.UseAuthentication();
             app.UseAuthorization();
-
-
-
 
             return app;
         }

@@ -1,0 +1,84 @@
+@* بطاقة مؤشر: قيمة + تغيّر مقارنة بالفترة السابقة + خط اتجاه صغير لآخر الأشهر *@
+
+<article class="kpi" style="--i:@Index">
+    <header class="kpi-head">
+        <span class="kpi-label">@Label</span>
+        <span class="kpi-icon"><Icon Name="@IconName" Size="16" /></span>
+    </header>
+
+    <div class="kpi-value">
+        @Value
+        @if (!string.IsNullOrEmpty(Unit))
+        {
+            <small>@Unit</small>
+        }
+    </div>
+
+    <footer class="kpi-foot">
+        <div class="kpi-foot-text">
+            @if (Delta is decimal delta)
+            {
+                <span class="kpi-delta">
+                    <Icon Name="@(delta >= 0 ? "trending-up" : "trending-down")" Size="13" />
+                    @($"{Math.Abs(delta):0.#}%")
+                </span>
+                <span class="kpi-vs">عن @CompareLabel</span>
+            }
+            else if (!string.IsNullOrEmpty(Hint))
+            {
+                <span class="kpi-vs">@Hint</span>
+            }
+        </div>
+
+        @if (Spark is { Count: > 1 })
+        {
+            <svg class="kpi-spark" width="@SparkWidth" height="@SparkHeight" viewBox="0 0 @SparkWidth @SparkHeight" aria-hidden="true">
+                <polyline points="@SparkPoints()" />
+                <circle cx="@F(SparkX(Spark.Count - 1))" cy="@F(SparkY(Spark[^1]))" r="3.5" />
+            </svg>
+        }
+    </footer>
+
+    @ChildContent
+</article>
+
+@code {
+    private const int SparkWidth = 84;
+    private const int SparkHeight = 28;
+    private const double SparkPad = 4;
+
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public string IconName { get; set; } = "activity";
+    [Parameter] public decimal? Delta { get; set; }
+    [Parameter] public string CompareLabel { get; set; } = "الشهر السابق";
+    [Parameter] public string Hint { get; set; } = "";
+    [Parameter] public IReadOnlyList<decimal>? Spark { get; set; }
+    [Parameter] public int Index { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    // الترتيب من اليمين لليسار (الأقدم يمين) ليطابق اتجاه الصفحة واتجاه المخطط الرئيسي
+    private double SparkX(int index)
+    {
+        var step = (SparkWidth - SparkPad * 2) / Math.Max(1, Spark!.Count - 1);
+        return SparkWidth - SparkPad - index * step;
+    }
+
+    private double SparkY(decimal value)
+    {
+        var min = Spark!.Min();
+        var max = Spark!.Max();
+        if (max == min)
+            return SparkHeight / 2.0;
+
+        var ratio = (double)((value - min) / (max - min));
+        return SparkHeight - SparkPad - ratio * (SparkHeight - SparkPad * 2);
+    }
+
+    // قيم SVG لازم تكون بفاصلة عشرية نقطة بغض النظر عن ثقافة المتصفح
+    private static string F(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string SparkPoints() =>
+        string.Join(" ", Spark!.Select((v, i) => $"{F(SparkX(i))},{F(SparkY(v))}"));
+}

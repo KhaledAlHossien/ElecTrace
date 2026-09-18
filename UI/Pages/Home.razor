@@ -1,126 +1,544 @@
 @page "/"
 @attribute [Authorize]
+@using System.Globalization
 @inject IApiDataService Api
+@inject ToastService Toasts
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 
 <PageTitle>الرئيسية</PageTitle>
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">لوحة المتابعة</p>
-        <h1>نظرة عامة على فواتير الكهرباء</h1>
-        <p>ملخص سريع للأقسام والقراءات والمستحقات المادية، مع وصول مباشر للمهام اليومية.</p>
+        <p class="eyebrow"><Icon Name="sparkles" Size="13" /> لوحة التحليلات</p>
+        <h1>@Greeting()</h1>
+        <p>ملخص أداء الاستهلاك والفواتير مع مقارنة بالأشهر السابقة.</p>
     </div>
-    <a class="btn btn-primary" href="readings">إدخال قراءة جديدة</a>
+    <a class="btn btn-primary" href="readings">
+        <Icon Name="plus" Size="17" />
+        <span>تسجيل قراءة</span>
+    </a>
 </section>
+
+<div class="dash-filters">
+    <span class="dash-filters-label"><Icon Name="calendar" Size="15" /> الفترة</span>
+    <select class="form-select" value="@selectedMonth" @onchange="OnMonthChanged" disabled="@isLoading">
+        @foreach (var month in Enum.GetValues<Months>())
+        {
+            <option value="@month">@MonthName(month)</option>
+        }
+    </select>
+    <input class="form-control year-input" type="number" value="@selectedYear" @onchange="OnYearChanged" disabled="@isLoading" />
+    @if (!IsCurrentPeriod)
+    {
+        <button class="btn btn-light btn-sm" @onclick="ResetToCurrent">
+            <Icon Name="refresh" Size="14" />
+            <span>الشهر الحالي</span>
+        </button>
+    }
+    @if (isRefreshing)
+    {
+        <span class="dash-refreshing"><span class="spinner"></span> جاري التحديث</span>
+    }
+</div>
 
 @if (isLoading)
 {
-    <div class="loading-panel">جاري تحميل البيانات...</div>
+    <section class="kpi-grid">
+        @for (var i = 0; i < 4; i++)
+        {
+            <div class="kpi kpi-skeleton">
+                <span class="skeleton-bar" style="width:40%"></span>
+                <span class="skeleton-bar" style="width:65%;height:26px;border-radius:8px"></span>
+                <span class="skeleton-bar" style="width:50%"></span>
+            </div>
+        }
+    </section>
+    <section class="panel"><TableSkeleton Rows="6" Columns="4" /></section>
 }
 else
 {
-    <section class="metric-grid">
-        <div class="metric-card">
-            <span>الأقسام</span>
-            <strong>@departments.Count</strong>
-            <small>عدادات فعالة ضمن النظام</small>
-        </div>
-        <div class="metric-card">
-            <span>قراءات الشهر</span>
-            <strong>@readings.Count</strong>
-            <small>@MonthName(selectedMonth) @selectedYear</small>
-        </div>
-        <div class="metric-card">
-            <span>الاستهلاك الكلي</span>
-            <strong>@readings.Sum(x => x.ActualConsumption).ToString("N0")</strong>
-            <small>كيلو واط ساعي</small>
-        </div>
-        <div class="metric-card">
-            <span>التكلفة الإجمالية</span>
-            <strong style="color: var(--primary-color, #2b6cb0);">@readings.Sum(x => x.TotalCost).ToString("N0") ل.س</strong>
-            <small>صافي المستحقات بعد الخصم</small>
-        </div>
-        <div class="metric-card">
-            <span>المستخدمون</span>
-            <strong>@users.Count</strong>
-            <small>حسابات لديها صلاحية دخول</small>
-        </div>
-    </section>
+    <div class="dash-body @(isRefreshing ? "is-refreshing" : "")">
+        <section class="kpi-grid">
+            <KpiTile Index="0" Label="الاستهلاك الكلي" IconName="zap"
+                     Value="@Compact(current.Consumption)" Unit="ك.و.س"
+                     Delta="@DeltaPct(current.Consumption, previous.Consumption)"
+                     CompareLabel="@MonthName(previous.Month)" Hint="لا توجد بيانات للشهر السابق"
+                     Spark="@points.Select(p => p.Consumption).ToList()" />
 
-    <section class="content-grid">
-        <div class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>أعلى استهلاك وتكلفة هذا الشهر</h2>
-                    <p>حسب القراءات المسجلة حالياً لأعلى 5 أقسام.</p>
+            <KpiTile Index="1" Label="إجمالي الفواتير" IconName="wallet"
+                     Value="@Compact(current.Cost)" Unit="ل.س"
+                     Delta="@DeltaPct(current.Cost, previous.Cost)"
+                     CompareLabel="@MonthName(previous.Month)" Hint="لا توجد بيانات للشهر السابق"
+                     Spark="@points.Select(p => p.Cost).ToList()" />
+
+            <KpiTile Index="2" Label="متوسط الفاتورة" IconName="file-text"
+                     Value="@Compact(current.AverageBill)" Unit="ل.س"
+                     Delta="@DeltaPct(current.AverageBill, previous.AverageBill)"
+                     CompareLabel="@MonthName(previous.Month)" Hint="لكل قسم مقروء"
+                     Spark="@points.Select(p => p.AverageBill).ToList()" />
+
+            <KpiTile Index="3" Label="إنجاز القراءات" IconName="gauge"
+                     Value="@($"{CompletionPct:0}%")"
+                     Hint="@($"{readCount} من {expectedCount} عداد")">
+                <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@CompletionPct.ToString("0", CultureInfo.InvariantCulture)">
+                    <span class="meter-fill" style="width:@Pct(CompletionPct)"></span>
                 </div>
-            </div>
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>القسم</th>
-                            <th>القراءة</th>
-                            <th>الاستهلاك</th>
-                            <th>التكلفة الصافية</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in readings.OrderByDescending(x => x.ActualConsumption).Take(5))
+            </KpiTile>
+        </section>
+
+        <section class="dash-grid">
+            <article class="panel viz-card">
+                <header class="viz-head">
+                    <div>
+                        <h2>الاستهلاك خلال آخر 6 أشهر</h2>
+                        <p>بالكيلو واط ساعي — الشهر المحدد مميّز</p>
+                    </div>
+                    <div class="seg" role="tablist" aria-label="طريقة العرض">
+                        <button type="button" class="seg-btn @(showTable ? "" : "active")" @onclick="() => showTable = false" title="رسم بياني">
+                            <Icon Name="bar-chart" Size="15" />
+                        </button>
+                        <button type="button" class="seg-btn @(showTable ? "active" : "")" @onclick="() => showTable = true" title="جدول">
+                            <Icon Name="table" Size="15" />
+                        </button>
+                    </div>
+                </header>
+
+                @if (showTable)
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>الشهر</th>
+                                    <th>الاستهلاك (ك.و.س)</th>
+                                    <th>الفواتير (ل.س)</th>
+                                    <th>عدد القراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var point in points.AsEnumerable().Reverse())
+                                {
+                                    <tr>
+                                        <td><strong>@MonthName(point.Month) @point.Date.Year</strong></td>
+                                        <td>@point.Consumption.ToString("N0")</td>
+                                        <td>@point.Cost.ToString("N0")</td>
+                                        <td>@point.Count</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="colchart" @onmouseleave="() => hoveredMonth = -1">
+                        <div class="colchart-y">
+                            @foreach (var tick in Ticks)
+                            {
+                                <span style="bottom:@Pct(Ratio(tick, AxisMax) * 100)">@Compact(tick)</span>
+                            }
+                        </div>
+
+                        <div class="colchart-plot">
+                            @foreach (var tick in Ticks)
+                            {
+                                <span class="colchart-grid" style="bottom:@Pct(Ratio(tick, AxisMax) * 100)"></span>
+                            }
+
+                            <div class="colchart-bands">
+                                @for (var i = 0; i < points.Count; i++)
+                                {
+                                    var index = i;
+                                    var point = points[i];
+                                    var isSelected = index == points.Count - 1;
+                                    var height = Ratio(point.Consumption, AxisMax) * 100;
+
+                                    <button type="button" class="colchart-band @(hoveredMonth == index ? "is-hover" : "")"
+                                            style="--i:@index"
+                                            aria-label="@($"{MonthName(point.Month)} {point.Date.Year}: {point.Consumption:N0} كيلو واط ساعي")"
+                                            @onmouseenter="() => hoveredMonth = index"
+                                            @onfocus="() => hoveredMonth = index"
+                                            @onblur="() => hoveredMonth = -1">
+                                        <span class="colchart-col @(isSelected ? "is-accent" : "")" style="height:@Pct(height)">
+                                            @if (isSelected && point.Consumption > 0)
+                                            {
+                                                <span class="colchart-cap">@Compact(point.Consumption)</span>
+                                            }
+                                        </span>
+
+                                        @if (hoveredMonth == index)
+                                        {
+                                            <span class="viz-tip" style="bottom:calc(@Pct(height) + 14px)">
+                                                <span class="viz-tip-title">@MonthName(point.Month) @point.Date.Year</span>
+                                                <strong>@point.Consumption.ToString("N0") <small>ك.و.س</small></strong>
+                                                <span class="viz-tip-row">الفواتير: @point.Cost.ToString("N0") ل.س</span>
+                                                <span class="viz-tip-row">القراءات: @point.Count</span>
+                                            </span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+
+                            @if (points.All(p => p.Consumption == 0))
+                            {
+                                <span class="colchart-empty">لا توجد قراءات في هذه الفترة</span>
+                            }
+                        </div>
+
+                        <div class="colchart-x">
+                            @foreach (var point in points)
+                            {
+                                <span>@MonthName(point.Month)</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </article>
+
+            <article class="panel viz-card">
+                <header class="viz-head">
+                    <div>
+                        <h2>حالة القراءات</h2>
+                        <p>@MonthName(selectedMonth) @selectedYear</p>
+                    </div>
+                </header>
+
+                <div class="status-list">
+                    <div class="status-row">
+                        <span class="status-ico good"><Icon Name="check-circle" Size="17" /></span>
+                        <span class="status-name">تمت قراءتها</span>
+                        <strong>@readCount</strong>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-ico warn"><Icon Name="clock" Size="17" /></span>
+                        <span class="status-name">بانتظار القراءة</span>
+                        <strong>@PendingCount</strong>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-ico info"><Icon Name="wallet" Size="17" /></span>
+                        <span class="status-name">اشتراك ثابت</span>
+                        <strong>@fixedCount</strong>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-ico muted"><Icon Name="x" Size="17" /></span>
+                        <span class="status-name">أقسام متوقفة</span>
+                        <strong>@inactiveCount</strong>
+                    </div>
+                </div>
+
+                @if (PendingCount > 0)
+                {
+                    <a class="btn btn-soft btn-block" href="readings">
+                        <Icon Name="zap" Size="16" />
+                        <span>إكمال القراءات المتبقية</span>
+                    </a>
+                }
+                else if (expectedCount > 0)
+                {
+                    <div class="status-done">
+                        <Icon Name="check-circle" Size="16" />
+                        <span>اكتملت جميع قراءات الشهر</span>
+                    </div>
+                }
+            </article>
+
+            <article class="panel viz-card">
+                <header class="viz-head">
+                    <div>
+                        <h2>الأعلى استهلاكاً</h2>
+                        <p>أعلى @topConsumers.Count أقسام — @MonthName(selectedMonth)</p>
+                    </div>
+                </header>
+
+                @if (!topConsumers.Any())
+                {
+                    <EmptyState Title="لا توجد قراءات" Text="لم تُسجَّل قراءات لهذا الشهر بعد." IconName="bar-chart" />
+                }
+                else
+                {
+                    <div class="hbars" @onmouseleave="() => hoveredConsumer = -1">
+                        @for (var i = 0; i < topConsumers.Count; i++)
                         {
-                            <tr>
-                                <td><strong>@item.DepartmentName</strong></td>
-                                <td>@item.CurrentReading.ToString("N0")</td>
-                                <td><span class="status-pill">@item.ActualConsumption.ToString("N0") ك.و.س</span></td>
-                                <td><strong>@item.TotalCost.ToString("N0") ل.س</strong></td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            @if (!readings.Any())
-            {
-                <EmptyState Text="لا توجد قراءات مسجلة للشهر الحالي بعد." />
-            }
-        </div>
+                            var index = i;
+                            var consumer = topConsumers[i];
+                            var width = Ratio(consumer.Consumption, topConsumers[0].Consumption) * 78;
 
-        <div class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>مهام سريعة</h2>
-                    <p>اختصارات للعمليات المتكررة.</p>
-                </div>
-            </div>
-            <div class="quick-actions">
-                <a href="departments">إدارة الأقسام</a>
-                <a href="readings">تسجيل القراءات</a>
-                <a href="reports">تنزيل التقارير</a>
-                <a href="settings">تعديل سعر الكهرباء</a>
-            </div>
-        </div>
-    </section>
+                            <div class="hbar-row @(hoveredConsumer == index ? "is-hover" : "")" style="--i:@index" tabindex="0"
+                                 @onmouseenter="() => hoveredConsumer = index"
+                                 @onfocus="() => hoveredConsumer = index"
+                                 @onblur="() => hoveredConsumer = -1">
+                                <span class="hbar-name" title="@consumer.Name">@consumer.Name</span>
+                                <div class="hbar-area">
+                                    <span class="hbar-fill" style="width:@Pct(width)"></span>
+                                    <span class="hbar-value">@consumer.Consumption.ToString("N0")</span>
+                                </div>
+
+                                @if (hoveredConsumer == index)
+                                {
+                                    <span class="viz-tip hbar-tip">
+                                        <span class="viz-tip-title">@consumer.Name</span>
+                                        <strong>@consumer.Consumption.ToString("N0") <small>ك.و.س</small></strong>
+                                        <span class="viz-tip-row">الفاتورة: @consumer.Cost.ToString("N0") ل.س</span>
+                                        <span class="viz-tip-row">الحصة: @($"{consumer.Share:0.#}%") من الإجمالي</span>
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </article>
+
+            <article class="panel viz-card">
+                <header class="viz-head">
+                    <div>
+                        <h2>ملاحظات تحليلية</h2>
+                        <p>مستخرجة تلقائياً من بيانات الشهر</p>
+                    </div>
+                </header>
+
+                @if (!insights.Any())
+                {
+                    <EmptyState Title="لا توجد ملاحظات" Text="ستظهر الملاحظات بعد تسجيل القراءات." IconName="lightbulb" />
+                }
+                else
+                {
+                    <ul class="insight-list">
+                        @for (var i = 0; i < insights.Count; i++)
+                        {
+                            var insight = insights[i];
+                            <li class="insight" style="--i:@i">
+                                <span class="status-ico @insight.Tone"><Icon Name="@insight.Icon" Size="16" /></span>
+                                <p>@insight.Text</p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </article>
+        </section>
+    </div>
 }
 
 @code {
-    private readonly Months selectedMonth = (Months)DateTime.Today.Month;
-    private readonly int selectedYear = DateTime.Today.Year;
-    private List<DepartmentResponseDto> departments = [];
-    private List<MeterReadingResponseDto> readings = [];
-    private List<UserResponseDto> users = [];
+    private sealed record MonthPoint(DateTime Date, decimal Consumption, decimal Cost, int Count)
+    {
+        public Months Month => (Months)Date.Month;
+        public decimal AverageBill => Count == 0 ? 0 : Cost / Count;
+    }
+
+    private sealed record Consumer(string Name, decimal Consumption, decimal Cost, decimal Share);
+    private sealed record Insight(string Icon, string Tone, string Text);
+
+    private Months selectedMonth = (Months)DateTime.Today.Month;
+    private int selectedYear = DateTime.Today.Year;
+
+    private List<MonthPoint> points = [];
+    private MonthPoint current = new(DateTime.Today, 0, 0, 0);
+    private MonthPoint previous = new(DateTime.Today.AddMonths(-1), 0, 0, 0);
+    private List<Consumer> topConsumers = [];
+    private List<Insight> insights = [];
+
+    private int expectedCount;
+    private int readCount;
+    private int fixedCount;
+    private int inactiveCount;
+
     private bool isLoading = true;
+    private bool isRefreshing;
+    private bool showTable;
+    private int hoveredMonth = -1;
+    private int hoveredConsumer = -1;
+    private string fullName = "";
+
+    private int PendingCount => Math.Max(0, expectedCount - readCount);
+    private decimal CompletionPct => expectedCount == 0 ? 0 : Math.Min(100, readCount * 100m / expectedCount);
+    private bool IsCurrentPeriod => selectedYear == DateTime.Today.Year && (int)selectedMonth == DateTime.Today.Month;
+
+    private decimal AxisMax => NiceCeiling(points.Count == 0 ? 0 : points.Max(p => p.Consumption));
+    private IReadOnlyList<decimal> Ticks => Enumerable.Range(0, 5).Select(i => AxisMax * i / 4).ToList();
 
     protected override async Task OnInitializedAsync()
     {
+        fullName = await LocalStorage.GetItemAsync<string>("fullName") ?? "";
+        await LoadAsync();
+    }
+
+    private string Greeting()
+    {
+        var hour = DateTime.Now.Hour;
+        var salute = hour < 12 ? "صباح الخير" : "مساء الخير";
+        return string.IsNullOrWhiteSpace(fullName) ? salute : $"{salute}، {fullName}";
+    }
+
+    private async Task LoadAsync()
+    {
+        if (points.Count > 0)
+            isRefreshing = true;
+        else
+            isLoading = true;
+
         try
         {
-            departments = await Api.GetDepartmentsAsync();
-            readings = await Api.GetMeterReadingsAsync(selectedMonth, selectedYear);
-            users = await Api.GetUsersAsync();
+            var anchor = new DateTime(selectedYear, (int)selectedMonth, 1);
+            var dates = Enumerable.Range(0, 6).Select(i => anchor.AddMonths(i - 5)).ToList();
+
+            var readingTasks = dates.Select(d => Api.GetMeterReadingsAsync((Months)d.Month, d.Year)).ToList();
+            var departmentsTask = Api.GetDepartmentsAsync();
+            await Task.WhenAll(readingTasks.Cast<Task>().Append(departmentsTask));
+
+            Compute(dates, readingTasks.Select(t => t.Result).ToList(), departmentsTask.Result);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error("تعذّر تحميل التحليلات: " + ex.Message);
         }
         finally
         {
             isLoading = false;
+            isRefreshing = false;
         }
+    }
+
+    private void Compute(List<DateTime> dates, List<List<MeterReadingResponseDto>> monthly, List<DepartmentResponseDto> departments)
+    {
+        points = dates.Select((d, i) => new MonthPoint(
+            d,
+            monthly[i].Sum(r => r.ActualConsumption),
+            monthly[i].Sum(r => r.TotalCost),
+            monthly[i].Count)).ToList();
+
+        current = points[^1];
+        previous = points[^2];
+
+        var currentReadings = monthly[^1];
+        var previousReadings = monthly[^2];
+
+        var metered = departments.Where(d => d.IsActive && !d.IsFixed).ToList();
+        var readIds = currentReadings.Select(r => r.DepartmentId).ToHashSet();
+        expectedCount = metered.Count;
+        readCount = metered.Count(d => readIds.Contains(d.Id));
+        fixedCount = departments.Count(d => d.IsActive && d.IsFixed);
+        inactiveCount = departments.Count(d => !d.IsActive);
+
+        var total = current.Consumption;
+        topConsumers = currentReadings
+            .GroupBy(r => r.DepartmentId)
+            .Select(g => new Consumer(
+                g.First().DepartmentName,
+                g.Sum(r => r.ActualConsumption),
+                g.Sum(r => r.TotalCost),
+                total == 0 ? 0 : g.Sum(r => r.ActualConsumption) * 100m / total))
+            .Where(c => c.Consumption > 0)
+            .OrderByDescending(c => c.Consumption)
+            .Take(6)
+            .ToList();
+
+        insights = BuildInsights(currentReadings, previousReadings, total);
+    }
+
+    private List<Insight> BuildInsights(List<MeterReadingResponseDto> currentReadings, List<MeterReadingResponseDto> previousReadings, decimal total)
+    {
+        var result = new List<Insight>();
+        if (currentReadings.Count == 0)
+            return result;
+
+        if (total > 0 && topConsumers.Count >= 3)
+        {
+            var topFive = topConsumers.Take(5).Sum(c => c.Consumption) * 100m / total;
+            result.Add(new Insight("percent", "info", $"أعلى {Math.Min(5, topConsumers.Count)} أقسام تستهلك {topFive:0.#}% من إجمالي استهلاك الشهر."));
+        }
+
+        var previousByDepartment = previousReadings
+            .GroupBy(r => r.DepartmentId)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.ActualConsumption));
+
+        var biggestRise = currentReadings
+            .GroupBy(r => r.DepartmentId)
+            .Where(g => previousByDepartment.TryGetValue(g.Key, out var before) && before > 0)
+            .Select(g => new
+            {
+                Name = g.First().DepartmentName,
+                Change = (g.Sum(r => r.ActualConsumption) - previousByDepartment[g.Key]) * 100m / previousByDepartment[g.Key]
+            })
+            .OrderByDescending(x => x.Change)
+            .FirstOrDefault();
+
+        if (biggestRise is not null && biggestRise.Change >= 10)
+            result.Add(new Insight("trending-up", "warn", $"أكبر ارتفاع: «{biggestRise.Name}» زاد استهلاكه {biggestRise.Change:0}% عن الشهر السابق."));
+
+        var rollovers = currentReadings.Count(r => r.CurrentReading < r.PreviousReading);
+        if (rollovers > 0)
+            result.Add(new Insight("alert-triangle", "warn", $"{rollovers} قراءة أقل من القراءة السابقة — راجِعها (تصفير عداد محتمل)."));
+
+        var zeros = currentReadings.Count(r => r.ActualConsumption == 0);
+        if (zeros > 0)
+            result.Add(new Insight("info", "muted", $"{zeros} قسم باستهلاك صفر هذا الشهر."));
+
+        if (PendingCount > 0)
+            result.Add(new Insight("clock", "warn", $"{PendingCount} عداد لم يُقرأ بعد لهذا الشهر."));
+
+        var readCountForAverage = currentReadings.Count(r => r.ActualConsumption > 0);
+        if (readCountForAverage > 0)
+            result.Add(new Insight("gauge", "info", $"متوسط الاستهلاك: {total / readCountForAverage:N0} ك.و.س لكل قسم."));
+
+        return result;
+    }
+
+    private async Task OnMonthChanged(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<Months>(args.Value?.ToString(), out var month))
+        {
+            selectedMonth = month;
+            await LoadAsync();
+        }
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var year) && year is >= 2000 and <= 2100)
+        {
+            selectedYear = year;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ResetToCurrent()
+    {
+        selectedMonth = (Months)DateTime.Today.Month;
+        selectedYear = DateTime.Today.Year;
+        await LoadAsync();
+    }
+
+    private static decimal? DeltaPct(decimal current, decimal previous) =>
+        previous == 0 ? null : (current - previous) * 100m / previous;
+
+    private static double Ratio(decimal value, decimal max) =>
+        max <= 0 ? 0 : Math.Clamp((double)(value / max), 0, 1);
+
+    private static string Pct(double value) =>
+        value.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+    private static string Pct(decimal value) => Pct((double)value);
+
+    // سقف "مرتب" للمحور حتى تطلع أرقام التدريج الأربعة نظيفة (مثلاً 29.4 ألف ← 40 ألف بدل 50)
+    private static decimal NiceCeiling(decimal max)
+    {
+        if (max <= 0)
+            return 4;
+
+        var exponent = Math.Pow(10, Math.Floor(Math.Log10((double)max)));
+        var fraction = (double)max / exponent;
+        var nice = new[] { 1, 2, 2.5, 4, 5, 8, 10 }.First(step => fraction <= step);
+        return (decimal)(nice * exponent);
+    }
+
+    private static string Compact(decimal value)
+    {
+        var abs = Math.Abs(value);
+        if (abs >= 1_000_000)
+            return (value / 1_000_000m).ToString("0.##", CultureInfo.InvariantCulture) + " مليون";
+        if (abs >= 10_000)
+            return (value / 1_000m).ToString("0.#", CultureInfo.InvariantCulture) + " ألف";
+        return value.ToString("N0", CultureInfo.InvariantCulture);
     }
 
     private static string MonthName(Months month) => month switch

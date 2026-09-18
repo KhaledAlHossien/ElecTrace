@@ -25,6 +25,7 @@ namespace Infrastructure
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<ISystemInfoService, SystemInfoService>();
+            services.AddScoped<IAmeenConnectionService, AmeenConnectionService>();
             services.AddScoped<IMeterReadingService, MeterReadingService>();
             services.AddScoped<IElectricityReportService, ElectricityReportService>();
             services.AddScoped<ETTService>();
