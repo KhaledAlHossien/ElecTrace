@@ -17,6 +17,8 @@
                 },
                 apply: function (theme) {
                     document.documentElement.setAttribute('data-theme', theme);
+                    // مزامنة ثيم Bootstrap كمان، حتى متغيراته (لون النص، سهم القوائم...) تتبع الوضع الليلي
+                    document.documentElement.setAttribute('data-bs-theme', theme);
                     var meta = document.querySelector('meta[name="theme-color"]');
                     if (meta) meta.setAttribute('content', theme === 'dark' ? '#080a16' : '#101330');
                     try { localStorage.setItem('elec.theme', theme); } catch (e) { }

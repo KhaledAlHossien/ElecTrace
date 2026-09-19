@@ -105,19 +105,12 @@ namespace Infrastructure.Servicies
           currentRowIndex++;
         }
 
-        int lastDataRowIndex = currentRowIndex - 1;
         worksheet.Cell(currentRowIndex, 2).Value = "المجموع الكلي";
 
-        if (lastDataRowIndex >= startRowIndex)
-        {
-          worksheet.Cell(currentRowIndex, 5).FormulaA1 = $"=SUM(E{startRowIndex}:E{lastDataRowIndex})";
-          worksheet.Cell(currentRowIndex, 8).FormulaA1 = $"=SUM(H{startRowIndex}:H{lastDataRowIndex})";
-        }
-        else
-        {
-          worksheet.Cell(currentRowIndex, 5).Value = 0;
-          worksheet.Cell(currentRowIndex, 8).Value = 0;
-        }
+        // قيم محسوبة مش صيغ SUM: ClosedXML بيحفظ الصيغة بلا قيمة، فكانت خلايا المجموع تطلع فاضية
+        // بالعرض المحمي تبع Excel وبعارضات الموبايل والمعاينة
+        worksheet.Cell(currentRowIndex, 5).Value = reportData.Sum(x => x.ActualConsumption);
+        worksheet.Cell(currentRowIndex, 8).Value = reportData.Sum(x => x.TotalCost);
 
         var totalRange = worksheet.Range(currentRowIndex, 1, currentRowIndex, 8);
         totalRange.Style
@@ -130,7 +123,16 @@ namespace Infrastructure.Servicies
         worksheet.Cell(currentRowIndex, 5).Style.NumberFormat.Format = "#,##0";
         worksheet.Cell(currentRowIndex, 8).Style.NumberFormat.Format = "#,##0.00";
 
-        worksheet.Columns().AdjustToContents();
+        // عرض ثابت للأعمدة: AdjustToContents ما كان يكتب عرض فعلي، فالمجموع (أكبر رقم بالعمود)
+        // كان يطلع ##### لأنو أعرض من العمود الافتراضي
+        worksheet.Column(1).Width = 8;
+        worksheet.Column(2).Width = 34;
+        worksheet.Column(3).Width = 24;
+        worksheet.Column(4).Width = 24;
+        worksheet.Column(5).Width = 16;
+        worksheet.Column(6).Width = 12;
+        worksheet.Column(7).Width = 12;
+        worksheet.Column(8).Width = 22;
 
         using (var stream = new MemoryStream())
         {
