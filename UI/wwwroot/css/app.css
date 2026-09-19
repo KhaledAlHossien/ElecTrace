@@ -1492,18 +1492,123 @@ p {
     margin-bottom: 1rem;
 }
 
+/* صف قابل للنقر (زر حقيقي مش div): بيدعم لوحة المفاتيح وقارئات الشاشة */
 .status-row {
     display: flex;
     align-items: center;
     gap: 0.65rem;
+    width: 100%;
     padding: 0.5rem 0.55rem;
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
-    transition: background var(--dur-fast) var(--ease-out);
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
     .status-row:hover {
         background: var(--bg-subtle);
+        border-color: var(--border-color);
     }
+
+    .status-row:focus-visible {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: var(--ring);
+    }
+
+    .status-row:active {
+        transform: scale(0.985);
+    }
+
+.status-chevron {
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
+    opacity: 0;
+    transform: translateX(6px);
+    transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+
+.status-row:hover .status-chevron,
+.status-row:focus-visible .status-chevron {
+    opacity: 1;
+    transform: translateX(0);
+    color: var(--primary);
+}
+
+/* قائمة الأقسام داخل النافذة */
+.dept-search {
+    display: flex;
+    margin-bottom: 0.75rem;
+}
+
+    .dept-search .form-control {
+        width: 100%;
+        max-width: none;
+    }
+
+.dept-list {
+    display: grid;
+    gap: 0.25rem;
+    max-height: 340px;
+    margin: 0;
+    padding: 0.25rem;
+    overflow-y: auto;
+    list-style: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-inset);
+}
+
+.dept-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-xs);
+    background: var(--bg-surface);
+    animation: rowIn var(--dur) var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 25ms);
+    transition: background var(--dur-fast) var(--ease-out);
+}
+
+    .dept-item:hover {
+        background: var(--bg-subtle);
+    }
+
+.dept-main {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+    .dept-main strong {
+        overflow: hidden;
+        font-size: 0.88rem;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.dept-detail {
+    flex-shrink: 0;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dept-none {
+    margin: 0.75rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
 
 .status-name {
     flex: 1;
@@ -2124,13 +2229,30 @@ textarea.form-control {
         border-color: var(--border-strong);
     }
 
+    /* color صريح ضروري: Bootstrap بيحط color:var(--bs-body-color) وقت التركيز، وهي قيمة غامقة ثابتة،
+       فكان النص يلي عم ينكتب يطلع غامق على خلفية غامقة بالوضع الليلي */
     .form-control:focus,
     .form-select:focus {
         outline: none;
+        color: var(--text-main);
         background: var(--bg-surface);
         border-color: var(--primary);
         box-shadow: var(--ring);
     }
+
+.form-control,
+.form-select {
+    caret-color: var(--primary);
+}
+
+/* تعبئة المتصفح التلقائية (متل اسم المستخدم) بتفرض خلفية فاتحة ونص غامق - منخليها تتبع الثيم */
+input.form-control:-webkit-autofill,
+input.form-control:-webkit-autofill:hover,
+input.form-control:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-main);
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-inset) inset;
+    transition: background-color 9999s ease-out;
+}
 
     .form-control::placeholder {
         color: var(--text-muted);
@@ -2142,6 +2264,18 @@ textarea.form-control {
     height: 1.05rem;
     accent-color: var(--primary);
     cursor: pointer;
+}
+
+/* بوتستراب بيرسم خلفية الـ checkbox غير المحدد بلون ثابت (رمادي غامق بالوضع الليلي) فبتختفي حدوده.
+   منخلي الحدود والخلفية تتبع ألوان الثيم، والمحدد بيرجع للون الأساسي */
+.form-check-input:not(:checked) {
+    background-color: var(--bg-surface);
+    border: 1.5px solid var(--text-muted);
+}
+
+.form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
 }
 
 .field-hint {
@@ -2192,6 +2326,63 @@ textarea.form-control {
 .search-input {
     max-width: 15rem;
 }
+
+/* شريط بحث فوق الجدول: حقل بحث + عدّاد النتائج */
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+    .table-toolbar .search-wrap {
+        flex: 1;
+        max-width: 28rem;
+    }
+
+    .table-toolbar .search-wrap .form-control {
+        height: 38px;
+        border-radius: var(--radius-pill);
+        padding-inline-end: 2.4rem;
+    }
+
+.table-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+    .table-count strong {
+        color: var(--text-main);
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+.search-clear {
+    position: absolute;
+    inset-inline-end: 0.5rem;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    animation: popIn var(--dur-fast) var(--ease-spring);
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+    .search-clear:hover {
+        background: var(--danger-soft);
+        color: var(--danger);
+    }
 
 .search-wrap {
     position: relative;

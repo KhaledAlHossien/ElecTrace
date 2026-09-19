@@ -76,6 +76,44 @@
     }
     else
     {
+        var visible = FilteredReadings.ToList();
+
+        <div class="table-toolbar">
+            <div class="search-wrap">
+                <span class="search-icon"><Icon Name="search" Size="16" /></span>
+                <input class="form-control" placeholder="ابحث باسم القسم أو رمز العداد أو المستخدم..."
+                       @bind="searchText" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
+                @if (!string.IsNullOrEmpty(searchText))
+                {
+                    <button type="button" class="search-clear" title="مسح البحث (Esc)" @onclick="ClearSearch">
+                        <Icon Name="x" Size="13" />
+                    </button>
+                }
+            </div>
+            <span class="table-count">
+                @if (IsSearching)
+                {
+                    <strong>@visible.Count</strong>
+                    <span>من أصل @readings.Count</span>
+                }
+                else
+                {
+                    <span>@readings.Count قراءة</span>
+                }
+            </span>
+        </div>
+
+        @if (!visible.Any())
+        {
+            <EmptyState Title="لا توجد نتائج" Text="لا توجد قراءات تطابق بحثك." IconName="search">
+                <button class="btn btn-light btn-sm" @onclick="ClearSearch">
+                    <Icon Name="x" Size="14" />
+                    <span>مسح البحث</span>
+                </button>
+            </EmptyState>
+        }
+        else
+        {
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
@@ -94,7 +132,7 @@
                     @{
                         var index = 0;
                     }
-                    @foreach (var reading in readings)
+                    @foreach (var reading in visible)
                     {
                         <tr class="@(reading.CurrentReading < reading.PreviousReading ? "row-warning" : "")"
                             style="--i:@(index++ % 25)" @key="reading.Id">
@@ -121,6 +159,7 @@
                 </tbody>
             </table>
         </div>
+        }
     }
 </section>
 
@@ -203,6 +242,50 @@
     private List<DepartmentResponseDto> departmentResults = [];
 
     private List<MeterReadingResponseDto> readings = [];
+
+    // فهرس بحث جاهز لكل قراءة (اسم القسم + رمز العداد + المستخدم) بعد توحيد النص العربي،
+    // فبكل ضغطة مفتاح منقارن بس مع نص جاهز بدل ما نعيد المعالجة
+    private Dictionary<int, string> searchIndex = new();
+    private Dictionary<int, string> meterCodes = new();
+    private string searchText = "";
+
+    private bool IsSearching => !string.IsNullOrWhiteSpace(searchText);
+
+    // كل كلمة بالبحث لازم تنطبق (AND): "مطعم شام" بيلاقي "مطعم الشام"
+    private IEnumerable<MeterReadingResponseDto> FilteredReadings
+    {
+        get
+        {
+            var tokens = SearchNormalizer.Tokens(searchText);
+            if (tokens.Length == 0)
+                return readings;
+
+            return readings.Where(r =>
+                searchIndex.TryGetValue(r.Id, out var haystack) &&
+                tokens.All(token => haystack.Contains(token, StringComparison.Ordinal)));
+        }
+    }
+
+    private void ClearSearch() => searchText = "";
+
+    private void OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            ClearSearch();
+    }
+
+    private void BuildSearchIndex()
+    {
+        searchIndex = readings.ToDictionary(
+            r => r.Id,
+            r =>
+            {
+                var code = r.Department?.MeterCode
+                    ?? (meterCodes.TryGetValue(r.DepartmentId, out var known) ? known : "");
+                return SearchNormalizer.Normalize($"{r.DepartmentName} {code} {r.CreatedByUserName}");
+            });
+    }
+
     private ReadingForm form = new();
     private Months selectedMonth = (Months)DateTime.Today.Month;
     private int selectedYear = DateTime.Today.Year;
@@ -218,6 +301,7 @@
 
         var deps = await Api.GetDepartmentsAsync();
         allActiveDepartments = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
+        meterCodes = deps.ToDictionary(d => d.Id, d => d.MeterCode);
 
         await LoadReadings();
     }
@@ -326,6 +410,7 @@
     {
         isLoading = true;
         readings = (await Api.GetMeterReadingsAsync(selectedMonth, selectedYear)).ToList();
+        BuildSearchIndex();
         isLoading = false;
     }
 
