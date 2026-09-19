@@ -204,26 +204,15 @@ else
                 </header>
 
                 <div class="status-list">
-                    <div class="status-row">
-                        <span class="status-ico good"><Icon Name="check-circle" Size="17" /></span>
-                        <span class="status-name">تمت قراءتها</span>
-                        <strong>@readCount</strong>
-                    </div>
-                    <div class="status-row">
-                        <span class="status-ico warn"><Icon Name="clock" Size="17" /></span>
-                        <span class="status-name">بانتظار القراءة</span>
-                        <strong>@PendingCount</strong>
-                    </div>
-                    <div class="status-row">
-                        <span class="status-ico info"><Icon Name="wallet" Size="17" /></span>
-                        <span class="status-name">اشتراك ثابت</span>
-                        <strong>@fixedCount</strong>
-                    </div>
-                    <div class="status-row">
-                        <span class="status-ico muted"><Icon Name="x" Size="17" /></span>
-                        <span class="status-name">أقسام متوقفة</span>
-                        <strong>@inactiveCount</strong>
-                    </div>
+                    @foreach (var group in StatusGroups)
+                    {
+                        <button type="button" class="status-row" title="عرض الأقسام" @onclick="() => OpenGroup(group.Key)">
+                            <span class="status-ico @group.Tone"><Icon Name="@group.Icon" Size="17" /></span>
+                            <span class="status-name">@group.Title</span>
+                            <strong>@group.Items.Count</strong>
+                            <span class="status-chevron"><Icon Name="chevron-left" Size="15" /></span>
+                        </button>
+                    }
                 </div>
 
                 @if (PendingCount > 0)
@@ -318,7 +307,97 @@ else
     </div>
 }
 
+<Modal IsOpen="@(openGroup is not null)" OnClose="CloseGroup"
+       Title="@(ActiveGroup?.Title ?? "")"
+       Subtitle="@($"{ActiveGroup?.Items.Count ?? 0} قسم — {MonthName(selectedMonth)} {selectedYear}")"
+       IconName="@(ActiveGroup?.Icon ?? "building")">
+    @if (ActiveGroup is not null)
+    {
+        @if (!ActiveGroup.Items.Any())
+        {
+            <EmptyState Title="لا توجد أقسام" Text="لا يوجد أي قسم ضمن هذه الحالة." IconName="@ActiveGroup.Icon" />
+        }
+        else
+        {
+            @if (ActiveGroup.Items.Count > 6)
+            {
+                <div class="search-wrap dept-search">
+                    <span class="search-icon"><Icon Name="search" Size="16" /></span>
+                    <input class="form-control" placeholder="بحث بالاسم أو رمز العداد..."
+                           @bind="groupSearch" @bind:event="oninput" />
+                </div>
+            }
+
+            <ul class="dept-list">
+                @{
+                    var index = 0;
+                }
+                @foreach (var item in FilteredGroupItems)
+                {
+                    <li class="dept-item" style="--i:@(index++ % 20)">
+                        <div class="dept-main">
+                            <strong>@item.Name</strong>
+                            <span class="status-pill neutral">@item.MeterCode</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(item.Detail))
+                        {
+                            <span class="dept-detail">@item.Detail</span>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (!FilteredGroupItems.Any())
+            {
+                <p class="dept-none">لا توجد نتائج مطابقة للبحث.</p>
+            }
+        }
+
+        @if (!string.IsNullOrEmpty(ActiveGroup.ActionHref))
+        {
+            <div class="button-row">
+                <a class="btn btn-primary" href="@ActiveGroup.ActionHref">
+                    <Icon Name="@ActiveGroup.ActionIcon" Size="16" />
+                    <span>@ActiveGroup.ActionText</span>
+                </a>
+                <button type="button" class="btn btn-light" @onclick="CloseGroup">إغلاق</button>
+            </div>
+        }
+    }
+</Modal>
+
 @code {
+    private enum StatusKey { Read, Pending, Fixed, Inactive }
+
+    private sealed record StatusItem(string Name, string MeterCode, string? Detail);
+
+    private sealed record StatusGroup(
+        StatusKey Key, string Title, string Icon, string Tone, List<StatusItem> Items,
+        string ActionText = "", string ActionHref = "", string ActionIcon = "");
+
+    private List<StatusGroup> StatusGroups = [];
+    private StatusKey? openGroup;
+    private string groupSearch = "";
+
+    private StatusGroup? ActiveGroup => StatusGroups.FirstOrDefault(g => g.Key == openGroup);
+
+    private IEnumerable<StatusItem> FilteredGroupItems =>
+        ActiveGroup is null
+            ? []
+            : string.IsNullOrWhiteSpace(groupSearch)
+                ? ActiveGroup.Items
+                : ActiveGroup.Items.Where(i =>
+                    i.Name.Contains(groupSearch, StringComparison.OrdinalIgnoreCase) ||
+                    i.MeterCode.Contains(groupSearch, StringComparison.OrdinalIgnoreCase));
+
+    private void OpenGroup(StatusKey key)
+    {
+        groupSearch = "";
+        openGroup = key;
+    }
+
+    private void CloseGroup() => openGroup = null;
+
     private sealed record MonthPoint(DateTime Date, decimal Consumption, decimal Cost, int Count)
     {
         public Months Month => (Months)Date.Month;
@@ -339,8 +418,6 @@ else
 
     private int expectedCount;
     private int readCount;
-    private int fixedCount;
-    private int inactiveCount;
 
     private bool isLoading = true;
     private bool isRefreshing;
@@ -413,11 +490,47 @@ else
         var previousReadings = monthly[^2];
 
         var metered = departments.Where(d => d.IsActive && !d.IsFixed).ToList();
-        var readIds = currentReadings.Select(r => r.DepartmentId).ToHashSet();
+        var readingsByDepartment = currentReadings
+            .GroupBy(r => r.DepartmentId)
+            .ToDictionary(g => g.Key, g => (Consumption: g.Sum(r => r.ActualConsumption), Cost: g.Sum(r => r.TotalCost)));
+
+        var read = metered
+            .Where(d => readingsByDepartment.ContainsKey(d.Id))
+            .OrderByDescending(d => readingsByDepartment[d.Id].Consumption)
+            .Select(d => new StatusItem(d.Name, d.MeterCode,
+                $"{readingsByDepartment[d.Id].Consumption:N0} ك.و.س — {readingsByDepartment[d.Id].Cost:N0} ل.س"))
+            .ToList();
+
+        var pending = metered
+            .Where(d => !readingsByDepartment.ContainsKey(d.Id))
+            .OrderBy(d => d.Name)
+            .Select(d => new StatusItem(d.Name, d.MeterCode, null))
+            .ToList();
+
+        var fixedSubscriptions = departments
+            .Where(d => d.IsActive && d.IsFixed)
+            .OrderBy(d => d.Name)
+            .Select(d => new StatusItem(d.Name, d.MeterCode, $"{d.FixedValue:N0} ك.و.س شهرياً"))
+            .ToList();
+
+        var inactive = departments
+            .Where(d => !d.IsActive)
+            .OrderBy(d => d.Name)
+            .Select(d => new StatusItem(d.Name, d.MeterCode, null))
+            .ToList();
+
         expectedCount = metered.Count;
-        readCount = metered.Count(d => readIds.Contains(d.Id));
-        fixedCount = departments.Count(d => d.IsActive && d.IsFixed);
-        inactiveCount = departments.Count(d => !d.IsActive);
+        readCount = read.Count;
+
+        StatusGroups =
+        [
+            new(StatusKey.Read, "تمت قراءتها", "check-circle", "good", read),
+            new(StatusKey.Pending, "بانتظار القراءة", "clock", "warn", pending,
+                "تسجيل القراءات", "readings", "zap"),
+            new(StatusKey.Fixed, "اشتراك ثابت", "wallet", "info", fixedSubscriptions),
+            new(StatusKey.Inactive, "أقسام متوقفة", "x", "muted", inactive,
+                "إدارة الأقسام", "departments", "building")
+        ];
 
         var total = current.Consumption;
         topConsumers = currentReadings
