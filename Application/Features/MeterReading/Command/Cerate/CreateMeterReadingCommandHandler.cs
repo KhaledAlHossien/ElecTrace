@@ -45,6 +45,17 @@ namespace Application.Features.MeterReading.Command.Cerate
                 throw new KeyNotFoundException($"Department with Meter Code {request.Dto.MeterCode} is fixed.");
             }
 
+            // السنة نفسها المستخدمة لاحقاً بفلترة GetByMonthAndYear، لأن CreatedAt الافتراضي بالكيان هو DateTime.UtcNow
+            if (!request.Dto.ForceDuplicate)
+            {
+                var alreadyRead = await _meterReadingService.IsRead(department.Id, request.Dto.Month, DateTime.UtcNow.Year);
+                if (alreadyRead)
+                {
+                    // إشارة مميّزة تعرفها الواجهة لعرض نافذة تأكيد بدل رسالة خطأ عادية
+                    throw new InvalidOperationException("DUPLICATE_READING");
+                }
+            }
+
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
 
             var systemInfos = await _systemInfoService.GetAllAsync();

@@ -36,5 +36,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IApiDataService, ApiDataService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<DialogService>();
+builder.Services.AddScoped<PendingReadingsQueue>();
 
 await builder.Build().RunAsync();
