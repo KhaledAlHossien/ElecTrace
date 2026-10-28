@@ -1,9 +1,11 @@
 @page "/readings"
 @attribute [Authorize]
+@implements IDisposable
 @inject IApiDataService Api
 @inject IJSRuntime Js
 @inject ToastService Toasts
 @inject DialogService Dialog
+@inject PendingReadingsQueue PendingQueue
 
 <PageTitle>قراءات الكهرباء</PageTitle>
 
@@ -18,6 +20,37 @@
         <span>تسجيل قراءة</span>
     </button>
 </section>
+
+@if (PendingQueue.TotalCount > 0)
+{
+    <a href="readings/pending-sync" class="sync-banner">
+        <span class="sync-banner-icon">
+            @if (PendingQueue.IsSyncing)
+            {
+                <span class="spinner"></span>
+            }
+            else
+            {
+                <Icon Name="cloud-sync" Size="17" />
+            }
+        </span>
+        <span class="sync-banner-text">
+            @if (PendingQueue.IsSyncing)
+            {
+                <strong>جاري مزامنة القراءات المحفوظة محلياً...</strong>
+            }
+            else
+            {
+                <strong>@PendingQueue.TotalCount قراءة بانتظار المزامنة</strong>
+                @if (PendingQueue.AttentionCount > 0)
+                {
+                    <span>— @PendingQueue.AttentionCount منها بحاجة قرارك</span>
+                }
+            }
+        </span>
+        <Icon Name="chevron-left" Size="16" />
+    </a>
+}
 
 <section class="panel">
     <div class="panel-header filter-header">
@@ -174,7 +207,7 @@
                 <label class="form-label">القسم أو العداد</label>
                 <div class="input-icon-wrap" style="position:relative;">
                     <span class="input-icon"><Icon Name="search" Size="17" /></span>
-                    <input type="text" class="form-control"
+                    <input type="text" class="form-control" @ref="meterCodeInputRef"
                            placeholder="اكتب اسم القسم أو رمز العداد..."
                            value="@form.MeterCode"
                            @oninput="FilterDepartments"
@@ -294,10 +327,25 @@
     private bool isExporting;
     private bool isFormOpen;
     private bool showDropdown;
+    private ElementReference meterCodeInputRef;
+    private bool focusMeterCodeInput;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // إعادة التركيز على حقل البحث بعد كل حفظ ناجح لتسريع إدخال القراءات المتتالية
+        if (focusMeterCodeInput)
+        {
+            focusMeterCodeInput = false;
+            await meterCodeInputRef.FocusAsync();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         form.Month = selectedMonth;
+
+        // تحديث شريط "بانتظار المزامنة" فور أي تغيير بالطابور، وإعادة تحميل الجدول لما تنجح مزامنة بالخلفية
+        PendingQueue.Changed += OnPendingQueueChanged;
 
         var deps = await Api.GetDepartmentsAsync();
         allActiveDepartments = deps.Where(d => d.IsActive && !d.IsFixed).ToList();
@@ -305,6 +353,33 @@
 
         await LoadReadings();
     }
+
+    private async void OnPendingQueueChanged()
+    {
+        // async void: أي استثناء هون بيهرب بلا catch وبيوقع تطبيق الـ WASM كامل (Mono runtime يطلع)،
+        // فلازم نلقط كل شي - خصوصاً إن LoadReadings ممكن تفشل لو التغيير صار لحظة تخزين قراءة بدون اتصال
+        try
+        {
+            // الجدول بيحتاج تحديث بس لما تنتهي عملية مزامنة فعلياً (نجاح/فشل)، مو لحظة بدايتها
+            // LoadReadings ما بتنادي StateHasChanged بنفسها (بتعتمد إنها تُستدعى من دورة حياة Blazor العادية)،
+            // وهاد الاستدعاء جاي من حدث C# خام مو من Blazor، فلازم نطلب إعادة الرسم يدوياً بعدها
+            if (!PendingQueue.IsSyncing)
+            {
+                await InvokeAsync(LoadReadings);
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception)
+        {
+            // تحديث الجدول تلقائياً مو أساسي؛ لو فشل (مثلاً ما زلنا بدون اتصال) بيترك الجدول كما هو لحد النجاح المرة الجاية
+        }
+    }
+
+    public void Dispose() => PendingQueue.Changed -= OnPendingQueueChanged;
 
     private void OpenCreate()
     {
@@ -414,7 +489,9 @@
         isLoading = false;
     }
 
-    private async Task SaveReading()
+    private async Task SaveReading() => await SubmitReading(force: false);
+
+    private async Task SubmitReading(bool force)
     {
         if (string.IsNullOrWhiteSpace(form.MeterCode))
         {
@@ -422,18 +499,87 @@
             return;
         }
 
+        // للعرض بالإشعار ولتخزينها بطابور عدم الاتصال إذا لزم؛ أفضل تخمين إذا ما انطابق رمز العداد تماماً
+        var matchedDepartment = allActiveDepartments.FirstOrDefault(d =>
+            d.MeterCode.Equals(form.MeterCode, StringComparison.OrdinalIgnoreCase));
+        var displayName = matchedDepartment?.Name ?? form.MeterCode;
+
         isSaving = true;
         try
         {
-            await Api.CreateMeterReadingAsync(new CreateMeterReadingRequestDto(form.MeterCode, form.Month, form.CurrentReading));
-            Toasts.Success("تم تسجيل القراءة.");
-            selectedMonth = form.Month;
+            await Api.CreateMeterReadingAsync(new CreateMeterReadingRequestDto(form.MeterCode, form.Month, form.CurrentReading, force));
+            Toasts.Success($"تم تسجيل قراءة \"{displayName}\".");
 
-            CloseForm();
+            ResetFormForNextEntry();
             await LoadReadings();
         }
-        catch (Exception ex) { Toasts.Error(ex.Message); }
-        finally { isSaving = false; }
+        catch (HttpRequestException)
+        {
+            await QueueOfflineAsync(displayName, force);
+        }
+        catch (TaskCanceledException)
+        {
+            // انتهت مهلة الطلب بدون رد من السيرفر - غالباً نفس سبب انقطاع الشبكة
+            await QueueOfflineAsync(displayName, force);
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("DUPLICATE_READING", StringComparison.Ordinal))
+            {
+                await HandleDuplicateWarningAsync();
+            }
+            else
+            {
+                Toasts.Error(ex.Message);
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // القسم أُدخل له قراءة لهذا الشهر مسبقاً: منسأل المستخدم صراحة قبل تسجيل قراءة إضافية لنفس الشهر
+    private async Task HandleDuplicateWarningAsync()
+    {
+        var confirmed = await Dialog.ConfirmAsync(new ConfirmOptions
+        {
+            Title = "قراءة مكرّرة لهذا الشهر",
+            Message = $"سبق وتم تسجيل قراءة لهذا القسم خلال شهر {MonthName(form.Month)}. هل تريد تسجيل قراءة إضافية لنفس الشهر؟",
+            ConfirmText = "نعم، سجّل قراءة إضافية",
+            CancelText = "تراجع",
+            IsDanger = false
+        });
+
+        if (confirmed)
+            await SubmitReading(force: true);
+    }
+
+    // فشل الإرسال لانقطاع الشبكة (مو خطأ من السيرفر): منخزّن القراءة محلياً بدل ما نضيّعها، وبتنعاد المزامنة تلقائياً.
+    // force بتنحفظ مع القراءة حتى لو كان المستخدم أصلاً أكّد تجاوز تحذير التكرار قبل ما تنقطع الشبكة
+    private async Task QueueOfflineAsync(string displayName, bool force)
+    {
+        await PendingQueue.EnqueueAsync(new PendingReadingItem
+        {
+            MeterCode = form.MeterCode,
+            DepartmentName = displayName,
+            Month = form.Month,
+            Year = selectedYear,
+            CurrentReading = form.CurrentReading,
+            ForceDuplicate = force
+        });
+
+        Toasts.Warning($"تعذّر الاتصال بالسيرفر. تم حفظ قراءة \"{displayName}\" محلياً وستتم مزامنتها تلقائياً عند عودة الاتصال.");
+        ResetFormForNextEntry();
+    }
+
+    // بتصفّر حقول الإدخال بس بتخلي النافذة مفتوحة على نفس الشهر، جاهزة لتسجيل قراءة القسم التالي فوراً
+    private void ResetFormForNextEntry()
+    {
+        var month = form.Month;
+        form = new ReadingForm { Month = month };
+        showDropdown = false;
+        focusMeterCodeInput = true;
     }
 
     private async Task DeleteReading(MeterReadingResponseDto reading)

@@ -584,6 +584,23 @@ p {
     text-overflow: ellipsis;
 }
 
+/* شارة عددية بجانب رابط القائمة (مثل عدد القراءات بانتظار المزامنة) */
+.nav-badge {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    padding: 0.05rem 0.45rem;
+    border-radius: var(--radius-pill);
+    background: var(--warning);
+    color: #1a1206;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.sidebar.collapsed .nav-badge {
+    display: none;
+}
+
 .nav-marker {
     position: absolute;
     inset-inline-end: 0;
@@ -2674,6 +2691,43 @@ input.form-control:-webkit-autofill:focus {
 .alert-danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 .alert-info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
 .alert-warning { background: var(--warning-soft); color: #b45309; border-color: var(--warning); }
+
+/* شريط تنبيه "بانتظار المزامنة" فوق جدول القراءات - رابط كامل قابل للنقر لصفحة المزامنة */
+.sync-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--warning);
+    border-inline-start-width: 3px;
+    background: var(--warning-soft);
+    color: #b45309;
+    font-size: 0.87rem;
+    text-decoration: none;
+    animation: fadeUp var(--dur) var(--ease-out);
+    transition: filter var(--dur-fast) var(--ease-out);
+}
+
+    .sync-banner:hover {
+        filter: brightness(0.97);
+    }
+
+    .sync-banner .sync-banner-icon {
+        display: flex;
+        flex-shrink: 0;
+    }
+
+    .sync-banner .sync-banner-text {
+        flex: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        align-items: baseline;
+    }
+
+:root[data-theme="dark"] .sync-banner { color: var(--warning); }
 
 /* أسفل يسار الشاشة - فوق الشريط العلوي كانت تتراكب مع أيقونات الحساب والثيم */
 .toast-host {

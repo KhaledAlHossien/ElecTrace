@@ -7,6 +7,7 @@
 @inject AuthenticationStateProvider AuthProvider
 @inject ILocalStorageService LocalStorage
 @inject IJSRuntime JS
+@inject PendingReadingsQueue PendingReadings
 
 <div class="shell" dir="rtl">
     @if (isMobileNavOpen)
@@ -147,6 +148,15 @@
         isDark = await JS.InvokeAsync<string>("appTheme.current") == "dark";
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // تشغيل طابور مزامنة القراءات المحفوظة محلياً مرة وحدة لكل جلسة تطبيق
+            await PendingReadings.InitializeAsync();
+        }
+    }
+
     private async Task ToggleTheme()
     {
         var theme = await JS.InvokeAsync<string>("appTheme.toggle");
@@ -187,6 +197,7 @@
             "" or "/" => "لوحة المتابعة",
             "/departments" => "الأقسام والعدادات",
             "/readings" => "قراءات الكهرباء",
+            "/readings/pending-sync" => "بانتظار المزامنة",
             "/users" => "المستخدمون",
             "/roles" => "الأدوار",
             "/reports" => "التقارير",

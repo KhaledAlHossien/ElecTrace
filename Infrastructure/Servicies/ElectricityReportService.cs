@@ -65,7 +65,7 @@ namespace Infrastructure.Servicies
           worksheet.Cell(currentRowIndex, 2).Value = item.DepartmentName;
           worksheet.Cell(currentRowIndex, 3).Value = item.PreviousReading;
           worksheet.Cell(currentRowIndex, 4).Value = item.CurrentReading;
-          worksheet.Cell(currentRowIndex, 5).Value = item.ActualConsumption;
+          worksheet.Cell(currentRowIndex, 5).Value = item.ActualConsumption * item.ConversionFactor;
           worksheet.Cell(currentRowIndex, 6).Value = item.ConversionFactor;
           worksheet.Cell(currentRowIndex, 7).Value = item.PricePerKilo;
           worksheet.Cell(currentRowIndex, 8).Value = item.TotalCost;
@@ -109,7 +109,7 @@ namespace Infrastructure.Servicies
 
         // قيم محسوبة مش صيغ SUM: ClosedXML بيحفظ الصيغة بلا قيمة، فكانت خلايا المجموع تطلع فاضية
         // بالعرض المحمي تبع Excel وبعارضات الموبايل والمعاينة
-        worksheet.Cell(currentRowIndex, 5).Value = reportData.Sum(x => x.ActualConsumption);
+        worksheet.Cell(currentRowIndex, 5).Value = reportData.Sum(x => x.ActualConsumption * x.ConversionFactor);
         worksheet.Cell(currentRowIndex, 8).Value = reportData.Sum(x => x.TotalCost);
 
         var totalRange = worksheet.Range(currentRowIndex, 1, currentRowIndex, 8);
@@ -152,6 +152,16 @@ namespace Infrastructure.Servicies
         worksheet.RightToLeft = true;
         worksheet.ShowGridLines = false;
 
+        // ---- إعداد الطباعة: A4 وهوامش ضيقة ----
+        worksheet.PageSetup.PaperSize = XLPaperSize.A4Paper;
+        worksheet.PageSetup.PageOrientation = XLPageOrientation.Portrait;
+        worksheet.PageSetup.Margins.Top = 0.3;
+        worksheet.PageSetup.Margins.Bottom = 0.3;
+        worksheet.PageSetup.Margins.Left = 0.3;
+        worksheet.PageSetup.Margins.Right = 0.3;
+        worksheet.PageSetup.Margins.Header = 0;
+        worksheet.PageSetup.Margins.Footer = 0;
+
         int lastDay = DateTime.DaysInMonth(year, month);
         var invoiceDate = new DateTime(year, month, lastDay);
 
@@ -163,8 +173,34 @@ namespace Infrastructure.Servicies
         var textGray = XLColor.FromHtml("#7f8c8d");
         var borderColor = XLColor.FromHtml("#d6dbdf");
 
+        // ---- حساب عدد البطاقات التي تسع بصفحة A4 واحدة، حتى ما ولا بطاقة تنقطع بين صفحتين ----
+        const double headerRowHeight = 30;
+        const double spacerRowHeight = 8;   // صف فراغ داخلي بسيط داخل البطاقة
+        const double labelRowHeight = 22;
+        const double valueRowHeight = 24;
+        const double footerRowHeight = 22;
+        const double gapRowHeight = 8;      // الفاصل بين فاتورة والتي تليها (سطر واحد فقط)
+        const double cardTotalHeight = headerRowHeight + spacerRowHeight + labelRowHeight + valueRowHeight + footerRowHeight + gapRowHeight;
+
+        const double a4HeightInches = 11.69;
+        const double pointsPerInch = 72;
+        const double safetyMarginPoints = 20; // هامش أمان حتى ما تنحسب الصفحة لآخر نقطة بالظبط
+        double usableHeightPoints = (a4HeightInches - (double)worksheet.PageSetup.Margins.Top - (double)worksheet.PageSetup.Margins.Bottom) * pointsPerInch - safetyMarginPoints;
+        int cardsPerPage = Math.Max(1, (int)Math.Floor(usableHeightPoints / cardTotalHeight));
+
+        int cardIndexOnPage = 0;
+        int previousFooterRow = -1;
+
         foreach (var invoiceData in allInvoicesData)
         {
+          // لو البطاقة الجاية رح تتجاوز سعة الصفحة الحالية، منفرض فاصل صفحة بعد آخر بطاقة كاملة
+          // حتى تبلش البطاقة الجاية بصفحة جديدة كاملة، بدل ما تنقطع نصها بآخر الصفحة
+          if (cardIndexOnPage == cardsPerPage && previousFooterRow > 0)
+          {
+            worksheet.PageSetup.AddHorizontalPageBreak(previousFooterRow);
+            cardIndexOnPage = 0;
+          }
+
           // ✅ تحديد لون خلفية البطاقة حسب IsMissing
           XLColor cardBackgroundColor = invoiceData.IsMissing ? XLColor.FromHtml("#ffcccc") : XLColor.White;
 
@@ -182,6 +218,7 @@ namespace Infrastructure.Servicies
           headerStyle.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
           headerStyle.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
           worksheet.Row(currentRow).Height = 30;
+          worksheet.Row(currentRow + 1).Height = spacerRowHeight;
 
           // صف التسميات
           int labelRow = currentRow + 2;
@@ -199,8 +236,8 @@ namespace Infrastructure.Servicies
 
           // صف القيم
           int valueRow = labelRow + 1;
-          worksheet.Cell(valueRow, 2).Value = invoiceData.ActualConsumption;
-          worksheet.Cell(valueRow, 3).Value = invoiceDate.ToString("dd/MM/yyyy", englishCulture); ;
+          worksheet.Cell(valueRow, 2).Value = invoiceData.ActualConsumption * invoiceData.ConversionFactor;
+          worksheet.Cell(valueRow, 3).Value = invoiceDate.ToString("dd/MM/yyyy", englishCulture);
           worksheet.Cell(valueRow, 4).Value = "كهرباء";
 
           var valueRange = worksheet.Range(valueRow, 2, valueRow, 4);
@@ -267,7 +304,12 @@ namespace Infrastructure.Servicies
           bottomLineRange.Style.Border.SetBottomBorder(XLBorderStyleValues.Medium);
           bottomLineRange.Style.Border.BottomBorderColor = darkBlue;
 
-          currentRow = footerRow + 5;
+          // فاصل سطر واحد فقط قبل الفاتورة التالية
+          worksheet.Row(footerRow + 1).Height = gapRowHeight;
+
+          previousFooterRow = footerRow;
+          cardIndexOnPage++;
+          currentRow = footerRow + 2;
         }
 
         // ضبط عرض الأعمدة
