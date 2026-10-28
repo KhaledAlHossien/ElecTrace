@@ -1,3 +1,6 @@
+@implements IDisposable
+@inject PendingReadingsQueue PendingReadings
+
 <div class="brand">
     <div class="brand-mark">
         <Icon Name="zap" Size="20" />
@@ -12,6 +15,7 @@
     <p class="nav-section">المتابعة</p>
     <NavItem Href="" Match="NavLinkMatch.All" Icon="home" Text="الرئيسية" />
     <NavItem Href="readings" Icon="zap" Text="قراءات الكهرباء" />
+    <NavItem Href="readings/pending-sync" Icon="cloud-sync" Text="بانتظار المزامنة" Badge="@PendingReadings.TotalCount" />
     <NavItem Href="reports" Icon="file-text" Text="التقارير" />
 
     <p class="nav-section">الإدارة</p>
@@ -23,4 +27,14 @@
 
 @code {
     [Parameter] public EventCallback OnNavigate { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // تحديث شارة العدد فور أي تغيير بالطابور (إضافة/مزامنة/حذف) بدون تحديث كامل للصفحة
+        PendingReadings.Changed += Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => PendingReadings.Changed -= Refresh;
 }

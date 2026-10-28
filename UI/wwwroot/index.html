@@ -158,6 +158,15 @@
             document.body.removeChild(anchor);
             URL.revokeObjectURL(url);
         };
+
+        // إشعار .NET بلحظة رجوع/انقطاع الاتصال، لتشغيل مزامنة القراءات المخزّنة محلياً فوراً بدل انتظار المحاولة الدورية
+        window.netStatus = {
+            isOnline: () => navigator.onLine,
+            registerCallbacks: (dotNetRef) => {
+                window.addEventListener('online', () => dotNetRef.invokeMethodAsync('OnOnline'));
+                window.addEventListener('offline', () => dotNetRef.invokeMethodAsync('OnOffline'));
+            }
+        };
     </script>
 
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>

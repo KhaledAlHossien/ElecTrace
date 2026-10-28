@@ -1,0 +1,174 @@
+@page "/readings/pending-sync"
+@attribute [Authorize]
+@implements IDisposable
+@inject PendingReadingsQueue PendingQueue
+@inject DialogService Dialog
+@inject ToastService Toasts
+
+<PageTitle>بانتظار المزامنة</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow"><Icon Name="cloud-sync" Size="13" /> عمل بدون اتصال</p>
+        <h1>القراءات بانتظار المزامنة</h1>
+        <p>قراءات أُدخلت أثناء انقطاع الاتصال بالسيرفر، محفوظة على هذا الجهاز وبانتظار إرسالها.</p>
+    </div>
+    <button class="btn btn-primary" @onclick="SyncNow" disabled="@(PendingQueue.IsSyncing || PendingQueue.PendingCount == 0)">
+        @if (PendingQueue.IsSyncing)
+        {
+            <span class="spinner"></span>
+            <span>جاري المزامنة...</span>
+        }
+        else
+        {
+            <Icon Name="cloud-sync" Size="17" />
+            <span>مزامنة الآن</span>
+        }
+    </button>
+</section>
+
+<section class="panel">
+    <div class="panel-header filter-header">
+        <div>
+            <h2>القائمة</h2>
+            <p>
+                @PendingQueue.TotalCount قراءة محفوظة محلياً
+                @if (PendingQueue.AttentionCount > 0)
+                {
+                    <span>— @PendingQueue.AttentionCount بحاجة قرارك</span>
+                }
+            </p>
+        </div>
+    </div>
+
+    @if (PendingQueue.TotalCount == 0)
+    {
+        <EmptyState Title="لا توجد قراءات بانتظار المزامنة" Text="كل القراءات المسجّلة وصلت للسيرفر بنجاح." IconName="check-circle" />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>القسم</th>
+                        <th>الشهر</th>
+                        <th>القراءة الحالية</th>
+                        <th>وقت الإدخال</th>
+                        <th>الحالة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var index = 0;
+                    }
+                    @foreach (var item in PendingQueue.Items)
+                    {
+                        <tr class="@(item.LastError is not null ? "row-warning" : "")" style="--i:@(index++ % 25)" @key="item.Id">
+                            <td>
+                                <strong>@item.DepartmentName</strong>
+                                <span class="status-pill neutral">@item.MeterCode</span>
+                            </td>
+                            <td>@MonthName(item.Month) @item.Year</td>
+                            <td>@item.CurrentReading.ToString("N0")</td>
+                            <td>@item.QueuedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                @if (item.LastError is null)
+                                {
+                                    <span class="status-pill warning">
+                                        @if (PendingQueue.IsSyncing)
+                                        {
+                                            <span class="spinner" style="width:11px;height:11px;border-width:1.5px;"></span>
+                                        }
+                                        else
+                                        {
+                                            <Icon Name="clock" Size="13" />
+                                        }
+                                        بانتظار الاتصال
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill danger" title="@item.LastError">
+                                        <Icon Name="alert-triangle" Size="13" />
+                                        @FriendlyError(item.LastError)
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <div class="table-actions">
+                                    @if (IsDuplicateError(item.LastError))
+                                    {
+                                        <button class="btn btn-light" title="تسجيلها كقراءة إضافية لنفس الشهر" @onclick="() => ForceRetry(item)">
+                                            <Icon Name="check" Size="15" />
+                                        </button>
+                                    }
+                                    else if (item.LastError is not null)
+                                    {
+                                        <button class="btn btn-light" title="إعادة المحاولة" @onclick="() => Retry(item)">
+                                            <Icon Name="refresh" Size="15" />
+                                        </button>
+                                    }
+                                    <button class="btn btn-outline-danger" title="حذف نهائياً" @onclick="() => Discard(item)">
+                                        <Icon Name="trash" Size="15" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    protected override void OnInitialized() => PendingQueue.Changed += Refresh;
+
+    public void Dispose() => PendingQueue.Changed -= Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task SyncNow() => await PendingQueue.SyncAsync();
+
+    private async Task Retry(PendingReadingItem item) => await PendingQueue.RetryAsync(item.Id, force: false);
+
+    private async Task ForceRetry(PendingReadingItem item) => await PendingQueue.RetryAsync(item.Id, force: true);
+
+    private async Task Discard(PendingReadingItem item)
+    {
+        if (!await Dialog.ConfirmDeleteAsync($"القراءة المحفوظة محلياً لقسم \"{item.DepartmentName}\""))
+            return;
+
+        await PendingQueue.RemoveAsync(item.Id);
+        Toasts.Success("تم حذف القراءة المحفوظة محلياً.");
+    }
+
+    private static bool IsDuplicateError(string? error) =>
+        error?.Contains("DUPLICATE_READING", StringComparison.Ordinal) == true;
+
+    // ترجمة الأخطاء المعروفة لنص عربي مفهوم، وأي خطأ آخر غير متوقع بيبين كما هو (كامل بالـ tooltip)
+    private static string FriendlyError(string error) => error switch
+    {
+        _ when IsDuplicateError(error) => "قراءة مكرّرة لهذا الشهر",
+        _ => error.Length > 40 ? error[..40] + "…" : error
+    };
+
+    private static string MonthName(Months month) => month switch
+    {
+        Months.January => "كانون الثاني",
+        Months.February => "شباط",
+        Months.March => "آذار",
+        Months.April => "نيسان",
+        Months.May => "أيار",
+        Months.June => "حزيران",
+        Months.July => "تموز",
+        Months.August => "آب",
+        Months.September => "أيلول",
+        Months.October => "تشرين الأول",
+        Months.November => "تشرين الثاني",
+        Months.December => "كانون الأول",
+        _ => month.ToString()
+    };
+}
